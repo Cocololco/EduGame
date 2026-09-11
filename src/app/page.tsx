@@ -30,6 +30,9 @@ export default function Home() {
         <p className="text-sm text-zinc-500 dark:text-zinc-500">
           No account needed yet — solo games are saved in this browser only.
         </p>
+        <Link href="/rules" className="text-sm text-zinc-600 underline dark:text-zinc-400">
+          How the simulation works
+        </Link>
       </div>
     </div>
   );

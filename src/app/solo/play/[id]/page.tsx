@@ -5,6 +5,18 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { CompanyYearState, Game, YearDecision, YearResult } from "@/types/game";
 import { advanceSoloYear } from "@/lib/game/createGame";
+import {
+  BASE_DEMAND_UNITS_PER_PLAYER,
+  BASE_UNIT_COST,
+  CAPACITY_COST_PER_UNIT,
+  INTEREST_RATE,
+  MARKETING_COST_PER_BRAND_POINT,
+  MORALE_TRAINING_FACTOR,
+  PRICE_ELASTICITY,
+  QUALITY_COST_PER_POINT,
+  REFERENCE_PRICE,
+} from "@/lib/simulation/constants";
+import { computeAttractiveness } from "@/lib/simulation/simulateYear";
 import { loadGame, saveGame } from "@/lib/game/storage";
 
 function formatCurrency(n: number): string {
@@ -31,11 +43,186 @@ type DecisionFormState = {
   capexSpend: number;
 };
 
+type FieldOption = { value: number; label: string };
+
+/** Picks whichever option's value is numerically closest to `target`. */
+function nearestOption(options: FieldOption[], target: number): number {
+  return options.reduce(
+    (best, opt) => (Math.abs(opt.value - target) < Math.abs(best - target) ? opt.value : best),
+    options[0].value,
+  );
+}
+
+function priceMultiplier(price: number): number {
+  return Math.pow(REFERENCE_PRICE / price, PRICE_ELASTICITY);
+}
+
+const PRICE_TIERS: { value: number; tier: string }[] = [
+  { value: 20, tier: "Very low" },
+  { value: 30, tier: "Low" },
+  { value: 40, tier: "Somewhat low" },
+  { value: 45, tier: "Slightly low" },
+  { value: 50, tier: "Neutral" },
+  { value: 55, tier: "Slightly high" },
+  { value: 60, tier: "Somewhat high" },
+  { value: 70, tier: "High" },
+  { value: 85, tier: "Very high" },
+  { value: 100, tier: "Extreme" },
+];
+
+function priceOptions(): FieldOption[] {
+  return PRICE_TIERS.map(({ value, tier }) => ({
+    value,
+    label: `$${value} — ${tier} (demand ×${priceMultiplier(value).toFixed(2)}, margin $${value - BASE_UNIT_COST}/unit)`,
+  }));
+}
+
+const MARKETING_TIERS = [0, 100, 250, 500, 750, 1000, 1500, 2500, 5000, 10000];
+function marketingOptions(): FieldOption[] {
+  return MARKETING_TIERS.map((v) => ({
+    value: v,
+    label:
+      v === 0
+        ? "$0 — None"
+        : `$${v.toLocaleString()} (+${(v / MARKETING_COST_PER_BRAND_POINT).toFixed(1)} brand pts next yr)`,
+  }));
+}
+
+function productionOptions(state: CompanyYearState): FieldOption[] {
+  const capacity = Math.round(state.productionCapacity);
+  const fractions = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.85, 1];
+  return fractions.map((f) => {
+    const units = Math.round(capacity * f);
+    return { value: units, label: `${units} units (${Math.round(f * 100)}% of capacity)` };
+  });
+}
+
+const CAPACITY_INVESTMENT_TIERS = [0, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000];
+function capacityInvestmentOptions(): FieldOption[] {
+  return CAPACITY_INVESTMENT_TIERS.map((v) => ({
+    value: v,
+    label: v === 0 ? "$0 — None" : `$${v.toLocaleString()} (+${Math.round(v / CAPACITY_COST_PER_UNIT)} units next yr)`,
+  }));
+}
+
+const QUALITY_INVESTMENT_TIERS = [0, 200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000];
+function qualityInvestmentOptions(): FieldOption[] {
+  return QUALITY_INVESTMENT_TIERS.map((v) => ({
+    value: v,
+    label:
+      v === 0 ? "$0 — None" : `$${v.toLocaleString()} (+${(v / QUALITY_COST_PER_POINT).toFixed(1)} quality pts next yr)`,
+  }));
+}
+
+const HIRE_TIERS = [0, 1, 2, 3, 4, 5, 7, 10, 15, 20];
+function hireOptions(state: CompanyYearState): FieldOption[] {
+  return HIRE_TIERS.map((v) => ({
+    value: v,
+    label: v === 0 ? "0 — None" : `${v} (+$${Math.round(v * state.wageLevel).toLocaleString()}/yr wages)`,
+  }));
+}
+
+const FIRE_TIERS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 15];
+function fireOptions(state: CompanyYearState): FieldOption[] {
+  return FIRE_TIERS.map((v) => ({
+    value: v,
+    label: v === 0 ? "0 — None" : `${v} (-${v * 5} morale, -$${Math.round(v * state.wageLevel).toLocaleString()}/yr wages)`,
+  }));
+}
+
+const WAGE_ADJUSTMENT_TIERS = [-20, -10, -5, -2, 0, 2, 5, 10, 15, 25];
+function wageAdjustmentOptions(): FieldOption[] {
+  return WAGE_ADJUSTMENT_TIERS.map((v) => ({
+    value: v,
+    label: v === 0 ? "0% — No change" : `${v > 0 ? "+" : ""}${v}% (${v > 0 ? "+" : ""}${v} morale)`,
+  }));
+}
+
+const TRAINING_TIERS = [0, 50, 100, 200, 350, 500, 750, 1000, 2000, 5000];
+function trainingOptions(): FieldOption[] {
+  return TRAINING_TIERS.map((v) => ({
+    value: v,
+    label: v === 0 ? "$0 — None" : `$${v.toLocaleString()} (+${(v * MORALE_TRAINING_FACTOR).toFixed(1)} morale)`,
+  }));
+}
+
+const LOAN_TIERS = [0, 1000, 2500, 5000, 10000, 15000, 20000, 30000, 50000, 100000];
+function loanOptions(): FieldOption[] {
+  return LOAN_TIERS.map((v) => ({
+    value: v,
+    label:
+      v === 0
+        ? "$0 — None"
+        : `$${v.toLocaleString()} (+$${Math.round(v * INTEREST_RATE).toLocaleString()}/yr interest, starting next yr)`,
+  }));
+}
+
+function loanRepaymentOptions(state: CompanyYearState): FieldOption[] {
+  const debt = Math.round(state.debt);
+  if (debt <= 0) return [{ value: 0, label: "$0 — No debt to repay" }];
+  const fractions = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.75, 0.9, 1];
+  return fractions.map((f) => {
+    const amt = Math.round(debt * f);
+    return { value: amt, label: f === 0 ? "$0 — None" : `$${amt.toLocaleString()} (${Math.round(f * 100)}% of debt)` };
+  });
+}
+
+const RND_TIERS = [0, 250, 500, 1000, 2000, 3000, 5000, 7500, 10000, 20000];
+function rndOptions(): FieldOption[] {
+  return RND_TIERS.map((v) => ({
+    value: v,
+    label: v === 0 ? "$0 — None" : `$${v.toLocaleString()} (pure cost — no effect yet)`,
+  }));
+}
+
+const CAPEX_TIERS = [0, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000];
+function capexOptions(): FieldOption[] {
+  return CAPEX_TIERS.map((v) => ({
+    value: v,
+    label: v === 0 ? "$0 — None" : `$${v.toLocaleString()} (adds to fixed assets, 10%/yr depreciation)`,
+  }));
+}
+
+interface FieldSpec {
+  key: keyof DecisionFormState;
+  label: string;
+  options: (state: CompanyYearState) => FieldOption[];
+}
+
+const FIELD_SPECS: FieldSpec[] = [
+  { key: "price", label: "Price ($/unit)", options: () => priceOptions() },
+  { key: "marketingSpend", label: "Marketing spend ($)", options: () => marketingOptions() },
+  { key: "productionVolume", label: "Production volume", options: productionOptions },
+  { key: "capacityInvestment", label: "Capacity investment ($)", options: () => capacityInvestmentOptions() },
+  { key: "qualityInvestment", label: "Quality investment ($)", options: () => qualityInvestmentOptions() },
+  { key: "hires", label: "Hires", options: hireOptions },
+  { key: "fires", label: "Fires", options: fireOptions },
+  { key: "wageAdjustmentPct", label: "Wage adjustment", options: () => wageAdjustmentOptions() },
+  { key: "trainingSpend", label: "Training spend ($)", options: () => trainingOptions() },
+  { key: "loanAmountRequested", label: "New loan ($)", options: () => loanOptions() },
+  { key: "loanRepayment", label: "Loan repayment ($)", options: loanRepaymentOptions },
+  { key: "rndSpend", label: "R&D spend ($)", options: () => rndOptions() },
+  { key: "capexSpend", label: "Other capex ($)", options: () => capexOptions() },
+];
+
 function defaultDecisionForm(state: CompanyYearState): DecisionFormState {
+  const priceOpts = priceOptions();
+  const defaultPrice = nearestOption(priceOpts, Math.round(state.currentPrice));
+
+  // Aim production at roughly what you could actually sell this year (at
+  // the default price, current quality/brand), not blindly at full
+  // capacity — overproducing relative to demand is the #1 way a first
+  // year loses money by default.
+  const projectedDemand = Math.round(BASE_DEMAND_UNITS_PER_PLAYER * computeAttractiveness(state, defaultPrice));
+  const defaultProduction = nearestOption(
+    productionOptions(state),
+    Math.min(projectedDemand, Math.round(state.productionCapacity)),
+  );
+
   return {
-    price: Math.round(state.currentPrice),
+    price: defaultPrice,
     marketingSpend: 1000,
-    productionVolume: Math.round(state.productionCapacity),
+    productionVolume: defaultProduction,
     capacityInvestment: 0,
     qualityInvestment: 0,
     hires: 0,
@@ -72,22 +259,6 @@ function toDecisionInput(form: DecisionFormState, playerId: string): Omit<YearDe
     },
   };
 }
-
-const NUMBER_FIELDS: { key: keyof DecisionFormState; label: string; hint?: string; min?: number }[] = [
-  { key: "price", label: "Price ($/unit)", min: 1 },
-  { key: "marketingSpend", label: "Marketing spend ($)", hint: "Raises brand awareness", min: 0 },
-  { key: "productionVolume", label: "Production volume (units)", hint: "Capped at production capacity", min: 0 },
-  { key: "capacityInvestment", label: "Capacity investment ($)", hint: "Raises production capacity", min: 0 },
-  { key: "qualityInvestment", label: "Quality investment ($)", hint: "Raises quality index", min: 0 },
-  { key: "hires", label: "Hires", min: 0 },
-  { key: "fires", label: "Fires", hint: "Hurts morale", min: 0 },
-  { key: "wageAdjustmentPct", label: "Wage adjustment (%)", hint: "e.g. 5 for +5%, -5 for a cut" },
-  { key: "trainingSpend", label: "Training spend ($)", hint: "Raises morale", min: 0 },
-  { key: "loanAmountRequested", label: "New loan ($)", min: 0 },
-  { key: "loanRepayment", label: "Loan repayment ($)", min: 0 },
-  { key: "rndSpend", label: "R&D spend ($)", min: 0 },
-  { key: "capexSpend", label: "Other capex ($)", min: 0 },
-];
 
 function CompanyStatusCard({ state, year, totalYears }: { state: CompanyYearState; year: number; totalYears: number }) {
   const stats: { label: string; value: string }[] = [
@@ -193,6 +364,17 @@ function DecisionForm({
     setForm({ ...form, [key]: value });
   }
 
+  // Projected outcome for THIS year, from the currently-selected price and
+  // production volume against the company's state as it stands right now
+  // (i.e. before this year's decisions apply — marketing/quality spend
+  // picked below won't show up here; they affect next year's demand).
+  const attractiveness = computeAttractiveness(state, form.price);
+  const potentialDemand = Math.round(BASE_DEMAND_UNITS_PER_PLAYER * attractiveness);
+  const unitsAvailable = state.inventoryUnits + form.productionVolume;
+  const projectedUnitsSold = Math.max(0, Math.min(potentialDemand, unitsAvailable));
+  const projectedRevenue = projectedUnitsSold * form.price;
+  const projectedGrossProfit = projectedUnitsSold * (form.price - BASE_UNIT_COST);
+
   return (
     <form
       onSubmit={(e) => {
@@ -201,21 +383,50 @@ function DecisionForm({
       }}
       className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950"
     >
-      <h2 className="mb-4 text-lg font-semibold text-zinc-950 dark:text-zinc-50">Year {year} decisions</h2>
+      <h2 className="mb-1 text-lg font-semibold text-zinc-950 dark:text-zinc-50">Year {year} decisions</h2>
+      <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+        Each option shows its effect. Not sure what a number means?{" "}
+        <Link href="/rules" className="underline" target="_blank">
+          See the rules
+        </Link>
+        .
+      </p>
+
+      <div className="mb-5 rounded-lg bg-zinc-100 p-4 text-sm dark:bg-zinc-900">
+        <p className="mb-2 font-medium text-zinc-800 dark:text-zinc-200">
+          Projected this year (ignoring random events; based on price + production volume above)
+        </p>
+        <p className="text-zinc-600 dark:text-zinc-400">
+          ~{potentialDemand} units of demand at this price → est. {projectedUnitsSold} sold, {formatCurrency(projectedRevenue)}{" "}
+          revenue, {formatCurrency(projectedGrossProfit)} gross profit (before wages/overhead/marketing).
+        </p>
+        {form.productionVolume > potentialDemand && (
+          <p className="mt-1 text-amber-700 dark:text-amber-400">
+            You&apos;re planning to produce more than you&apos;re likely to sell — the rest becomes inventory.
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {NUMBER_FIELDS.map((f) => (
-          <label key={f.key} className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">{f.label}</span>
-            {f.hint && <span className="text-xs text-zinc-500 dark:text-zinc-400">{f.hint}</span>}
-            <input
-              type="number"
-              min={f.min}
-              value={form[f.key]}
-              onChange={(e) => handleChange(f.key, Number(e.target.value) || 0)}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-            />
-          </label>
-        ))}
+        {FIELD_SPECS.map((spec) => {
+          const options = spec.options(state);
+          return (
+            <label key={spec.key} className="flex flex-col gap-1 text-sm">
+              <span className="font-medium text-zinc-800 dark:text-zinc-200">{spec.label}</span>
+              <select
+                value={form[spec.key]}
+                onChange={(e) => handleChange(spec.key, Number(e.target.value))}
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              >
+                {options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        })}
       </div>
 
       <button
