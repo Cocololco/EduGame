@@ -96,7 +96,21 @@ export default function LeaderboardClient() {
               <tbody>
                 {sorted.map((e, i) => (
                   <tr key={e.id} className="border-b border-zinc-100 last:border-b-0 dark:border-zinc-900">
-                    <td className="py-2 pl-4 pr-4 text-zinc-500 dark:text-zinc-400">{i + 1}</td>
+                    <td className="py-2 pl-4 pr-4">
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                          i === 0
+                            ? "bg-amber-400 text-amber-950"
+                            : i === 1
+                              ? "bg-zinc-300 text-zinc-800 dark:bg-zinc-400"
+                              : i === 2
+                                ? "bg-amber-700 text-amber-50"
+                                : "text-zinc-500 dark:text-zinc-400"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                    </td>
                     <td className="py-2 pr-4 font-medium text-zinc-900 dark:text-zinc-100">{e.playerName}</td>
                     <td className="py-2 pr-4 text-zinc-700 dark:text-zinc-300">{e.companyName || "—"}</td>
                     <td className="py-2 pr-4 text-zinc-500 dark:text-zinc-400">
