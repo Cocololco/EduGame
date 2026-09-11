@@ -1,16 +1,18 @@
 # EduGame — How the Simulation Works
 
-A plain-language reference for the numbers behind the game, so you can actually reason about decisions instead of guessing. Matches the current constants in [`src/lib/simulation/constants.ts`](../src/lib/simulation/constants.ts) and [`initialState.ts`](../src/lib/simulation/initialState.ts) — if those change, this doc is stale until updated.
+A plain-language reference for the numbers behind the game, so you can actually reason about decisions instead of guessing. Matches the current constants in [`src/lib/simulation/constants.ts`](../src/lib/simulation/constants.ts) and [`initialState.ts`](../src/lib/simulation/initialState.ts) — if those change, this doc is stale until updated. **Balanced by calculation, not yet by real play** — the worked examples below check out mathematically (and are covered by `npm test`), but nobody's put a full multi-year game through its paces yet. If it still feels off after playing, that's useful signal — say so.
 
 **The single most important rule: this year's marketing/quality spend pays off *next* year, not this one.** Demand for the year you're deciding is calculated from your quality and brand awareness as they stood at the *start* of the year (i.e. last year's closing numbers) — not from the investment you're about to make. So if you plow $5,000 into marketing this year, don't expect it to move this year's sales; it raises brand awareness for next year's demand calculation instead. Price is the exception — the price you set this year affects this year's demand immediately.
 
 ## Starting position (solo, default)
 
-$50,000 cash, $0 debt, 10 employees at $3,000/year each, production capacity 1,200 units/year, price $50, quality 50/100, brand awareness 30/100, morale 70/100.
+$50,000 cash, $0 debt, 6 employees at $2,500/year each, production capacity 1,200 units/year, price $50, quality 50/100, brand awareness 30/100, morale 70/100.
+
+These numbers are sized against the cost/demand constants below so that a **reasonably-played year is profitable** — see the worked examples in each section. It's not free money: underpricing badly or overspending can still lose money, but you shouldn't need a perfect plan just to break even.
 
 ## Pricing & demand
 
-Your unit cost to produce one item is **$20** (before any cost-inflation/supply-disruption event). The reference price is **$50** — that's "neutral": pricing exactly there doesn't boost or hurt demand.
+Your unit cost to produce one item is **$15** (before any cost-inflation/supply-disruption event). The reference price is **$50** — that's "neutral": pricing exactly there doesn't boost or hurt demand.
 
 Demand reacts sharply to price (elasticity 1.5), roughly:
 
@@ -24,13 +26,23 @@ Demand reacts sharply to price (elasticity 1.5), roughly:
 | $70 | ×0.60 | high |
 | $100 | ×0.35 | very high |
 
-That multiplier applies to a **baseline demand of 1,000 units**, which is then also scaled by your quality and brand awareness (see below). So "how many units could I sell at this price" = `1000 × price multiplier × quality factor × brand factor`, capped by however much you actually produce (plus any carried-over unsold inventory).
+That multiplier applies to a **baseline demand of 1,800 units**, which is then also scaled by your quality and brand awareness (see below). So "how many units could I sell at this price" = `1800 × price multiplier × quality factor × brand factor`, capped by however much you actually produce (plus any carried-over unsold inventory) and by your production capacity.
 
-**Known balance issue:** because elasticity is above 1, cutting price is currently almost always revenue-positive if you're not capacity-constrained — the model doesn't yet punish racing toward $0. Not fixed yet, just be aware a very low price with enough capacity can look artificially good.
+**Worked example** — default starting state, producing flat-out at full capacity (1,200 units), no other decisions:
+
+| Price | Units sold | Revenue | Net profit |
+|---|---|---|---|
+| $30 | 1,200 (capacity-capped) | $36,000 | **−$500** |
+| $40 | 1,200 (capacity-capped) | $48,000 | **$11,500** |
+| $50 | 878 (demand-capped) | $43,875 | **$12,213** |
+| $60 | 668 (demand-capped) | $40,052 | **$11,539** |
+| $70 | 530 (demand-capped) | $37,081 | **$10,635** |
+
+So $40-$70 all land you roughly $10k-12k profit even with zero strategy beyond "produce as much as you can" — the game is meant to reward *good* decisions with more than that, not merely reward avoiding an accidental loss. $30 is the outlier: capacity caps how many units the lower margin can be spread across, so undercutting that hard doesn't pay off here. Elasticity is still above 1 in the underlying formula (uncapped, cutting price is revenue-positive), but capacity now keeps that from dominating at reasonable capacity levels.
 
 ## Quality & brand awareness (both 0–100)
 
-Each contributes a factor to demand: `0.5 + 0.5 × (value / 100)`. So going from 0 → 100 only doubles that factor (0.5× at the floor, 1.0× at the ceiling) — meaningful, but not explosive on its own. At the default starting quality (50) and brand (30): quality factor 0.75, brand factor 0.65. Combined with price-at-$50 (×1.00), that's why a fresh game sells only about **488 units** in year 1 (1000 × 0.75 × 0.65 × 1.00 ≈ 488) even though starting capacity is 1,200 — capacity isn't your early bottleneck, demand is.
+Each contributes a factor to demand: `0.5 + 0.5 × (value / 100)`. So going from 0 → 100 only doubles that factor (0.5× at the floor, 1.0× at the ceiling) — meaningful, but not explosive on its own. At the default starting quality (50) and brand (30): quality factor 0.75, brand factor 0.65. Combined with price-at-$50 (×1.00), that's why a fresh game sells about **878 units** at $50 in year 1 (1800 × 0.75 × 0.65 × 1.00 ≈ 878) — under the 1,200 capacity, so at that price demand (not capacity) is what limits you; at lower prices (see the table above) capacity becomes the limit instead.
 
 - **Quality investment**: $200 → +1 quality point (next year), capped at 100.
 - **Marketing spend → brand awareness**: $150 → +1 brand point (next year), capped at 100. But brand awareness also **decays 15%/year** if you don't reinvest (`newBrand = oldBrand × 0.85 + spend/150`). To merely *hold* a brand score of B, you need to spend enough to offset that year's decay (`0.15 × B × 150` ≈ `22.5 × B` dollars/year) — e.g. holding brand at 30 costs roughly $675/year just to stand still; growing it costs more.
@@ -44,7 +56,7 @@ Each contributes a factor to demand: `0.5 + 0.5 × (value / 100)`. So going from
 
 ## HR & wages
 
-- Wages expense = `employees × wage level`. At the default (10 employees × $3,000) that's **$30,000/year** — bigger than year-1 revenue at default settings, which is exactly why a default first year usually posts a loss. Headcount or wage level need to match your revenue scale, not just be left at the starting defaults.
+- Wages expense = `employees × wage level`. At the default (6 employees × $2,500) that's **$15,000/year** — sized to leave room for profit against the revenue numbers above, but it still scales with headcount: hiring a lot without the revenue to back it will eat into that margin.
 - **Firing** costs 5 morale points per employee, immediately.
 - **Wage adjustment %**: a raise (+5%) costs more in wages going forward and adds morale (+1 point per 1%); a cut does the reverse.
 - **Training spend**: $50 → +1 morale point.
@@ -59,7 +71,7 @@ Each contributes a factor to demand: `0.5 + 0.5 × (value / 100)`. So going from
 
 ## Overhead, depreciation, cash
 
-- Fixed overhead: **$5,000/year**, regardless of scale.
+- Fixed overhead: **$2,500/year**, regardless of scale.
 - Depreciation: **10%/year** of your fixed-assets book value (an expense, and it also reduces that asset's value).
 - ⚠️ **Cash can go negative with no bankruptcy/insolvency consequence yet** — a large negative cash balance just means you're doing badly, nothing stops the game.
 

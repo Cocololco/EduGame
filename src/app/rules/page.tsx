@@ -27,6 +27,14 @@ const PRICE_ROWS: [string, string, string][] = [
   ["$100", "×0.35", "very high"],
 ];
 
+const WORKED_EXAMPLE_ROWS: [string, string, string, string][] = [
+  ["$30", "1,200 (capacity-capped)", "$36,000", "−$500"],
+  ["$40", "1,200 (capacity-capped)", "$48,000", "$11,500"],
+  ["$50", "878 (demand-capped)", "$43,875", "$12,213"],
+  ["$60", "668 (demand-capped)", "$40,052", "$11,539"],
+  ["$70", "530 (demand-capped)", "$37,081", "$10,635"],
+];
+
 const EVENT_ROWS: [string, string, string][] = [
   ["Economic downturn", "market-wide", "demand ×0.8"],
   ["Positive demand shock", "market-wide", "demand ×1.2"],
@@ -45,7 +53,8 @@ export default function RulesPage() {
           <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">How the simulation works</h1>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             The numbers behind the game, in plain language, so you can reason about decisions instead of guessing.
-            Not balanced/tuned yet — see the notes below on known gaps.{" "}
+            Balanced by calculation (a reasonably-played year should turn a profit — see the worked example below),
+            not yet by a full multi-year playthrough. See the notes below on known gaps.{" "}
             <Link href="/solo/new" className="underline">
               Back to game setup
             </Link>
@@ -62,14 +71,15 @@ export default function RulesPage() {
 
         <Section title="Starting position (solo, default)">
           <p>
-            $50,000 cash, $0 debt, 10 employees at $3,000/year each, production capacity 1,200 units/year, price $50,
-            quality 50/100, brand awareness 30/100, morale 70/100.
+            $50,000 cash, $0 debt, 6 employees at $2,500/year each, production capacity 1,200 units/year, price $50,
+            quality 50/100, brand awareness 30/100, morale 70/100. Sized so a reasonably-played year is profitable —
+            see the worked example below.
           </p>
         </Section>
 
         <Section title="Pricing & demand">
           <p>
-            Your unit cost is <strong>$20</strong>. The reference price is <strong>$50</strong> — pricing there is
+            Your unit cost is <strong>$15</strong>. The reference price is <strong>$50</strong> — pricing there is
             demand-neutral. Demand reacts sharply to price (elasticity 1.5):
           </p>
           <div className="overflow-x-auto">
@@ -93,21 +103,51 @@ export default function RulesPage() {
             </table>
           </div>
           <p>
-            That multiplier applies to a baseline of 1,000 units, further scaled by your quality and brand awareness
-            (below), then capped by what you actually produce plus any carried-over inventory.
+            That multiplier applies to a baseline of 1,800 units, further scaled by your quality and brand awareness
+            (below), then capped by what you actually produce plus any carried-over inventory, and by your production
+            capacity.
           </p>
-          <Callout>
-            Known balance issue: cutting price is currently almost always revenue-positive when you&apos;re not
-            capacity-constrained — the model doesn&apos;t yet punish racing toward $0. Not fixed yet.
-          </Callout>
+
+          <p className="font-medium text-zinc-800 dark:text-zinc-200">
+            Worked example — default starting state, producing flat-out at full capacity (1,200 units), no other
+            decisions:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                  <th className="py-1.5 pr-4 font-medium">Price</th>
+                  <th className="py-1.5 pr-4 font-medium">Units sold</th>
+                  <th className="py-1.5 pr-4 font-medium">Revenue</th>
+                  <th className="py-1.5 pr-4 font-medium">Net profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {WORKED_EXAMPLE_ROWS.map(([price, units, revenue, profit]) => (
+                  <tr key={price} className="border-b border-zinc-100 dark:border-zinc-900">
+                    <td className="py-1.5 pr-4">{price}</td>
+                    <td className="py-1.5 pr-4 text-zinc-500 dark:text-zinc-400">{units}</td>
+                    <td className="py-1.5 pr-4 text-zinc-500 dark:text-zinc-400">{revenue}</td>
+                    <td className="py-1.5 pr-4 font-medium text-zinc-900 dark:text-zinc-100">{profit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p>
+            $40-$70 all land roughly $10k-12k profit with zero strategy beyond &quot;produce as much as you
+            can&quot; — good decisions should beat that, not merely avoid a loss. $30 is the outlier: capacity caps
+            how many units that lower margin spreads across, so undercutting that hard doesn&apos;t pay off here.
+          </p>
         </Section>
 
         <Section title="Quality & brand awareness (both 0–100)">
           <p>
             Each contributes a demand factor of <code className="rounded bg-black/5 px-1 dark:bg-white/10">0.5 + 0.5 × (value/100)</code> —
             0 → 0.5×, 100 → 1.0×. At the default starting quality (50) and brand (30) that&apos;s 0.75× and 0.65×; combined
-            with neutral price (1.00×) that&apos;s why a fresh game sells only ~488 units in year 1 even with 1,200
-            capacity — demand, not capacity, is the early bottleneck.
+            with neutral price (1.00×) that&apos;s why a fresh game sells about ~878 units at $50 in year 1 — under
+            the 1,200 capacity, so at that price demand (not capacity) is what limits you; at lower prices, capacity
+            becomes the limit instead (see the table above).
           </p>
           <p>
             <strong>Quality investment:</strong> $200 → +1 quality point next year (max 100).
@@ -132,9 +172,9 @@ export default function RulesPage() {
 
         <Section title="HR & wages">
           <p>
-            Wages = employees × wage level. At default (10 × $3,000) that&apos;s <strong>$30,000/year</strong> —
-            bigger than typical year-1 revenue, which is why a default first year usually posts a loss. Headcount
-            needs to match your revenue scale.
+            Wages = employees × wage level. At default (6 × $2,500) that&apos;s <strong>$15,000/year</strong> — sized
+            to leave room for profit against the revenue numbers above, but it still scales with headcount: hiring a
+            lot without the revenue to back it will eat into that margin.
           </p>
           <p>
             <strong>Firing</strong> costs 5 morale/employee immediately. <strong>Wage adjustment</strong>: a raise
@@ -157,7 +197,7 @@ export default function RulesPage() {
         </Section>
 
         <Section title="Overhead, depreciation, cash">
-          <p>Fixed overhead: $5,000/year. Depreciation: 10%/year of fixed-assets book value.</p>
+          <p>Fixed overhead: $2,500/year. Depreciation: 10%/year of fixed-assets book value.</p>
           <Callout>Cash can go negative with no bankruptcy consequence yet — it just means you&apos;re doing badly.</Callout>
         </Section>
 

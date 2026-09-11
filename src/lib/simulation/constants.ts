@@ -2,13 +2,20 @@
  * Tunable simulation constants.
  *
  * These are placeholder values for an initial playable version — not
- * balanced or playtested yet (see docs/GAME_DESIGN.md's open questions).
- * Nothing else in the simulation should hardcode these numbers; change them
- * here and re-run the tests in src/lib/simulation/*.test.ts to see the effect.
+ * playtested against real play yet (see docs/GAME_DESIGN.md's open
+ * questions), but they ARE calculated to make a reasonably-played year
+ * profitable at DEFAULT_STARTING_CONDITIONS (see initialState.ts):
+ * selling ~840-1200 units at a $50-ish price nets roughly $10k-12k profit
+ * before marketing, once wages/overhead/COGS are covered. Overproducing or
+ * underpricing can still lose money — see docs/RULES.md for the worked
+ * numbers. Nothing else in the simulation should hardcode these numbers;
+ * change them here and re-run the tests in src/lib/simulation/*.test.ts to
+ * see the effect (and update docs/RULES.md + src/app/rules/page.tsx, which
+ * restate some of this math in prose rather than deriving it).
  */
 
 /** Baseline units of demand per player per year, before attractiveness/events. */
-export const BASE_DEMAND_UNITS_PER_PLAYER = 1000;
+export const BASE_DEMAND_UNITS_PER_PLAYER = 1800;
 
 /** Price at which the price-attractiveness factor is neutral (1.0). */
 export const REFERENCE_PRICE = 50;
@@ -25,10 +32,10 @@ export const REFERENCE_PRICE = 50;
 export const PRICE_ELASTICITY = 1.5;
 
 /** Base cost to produce one unit, before cost-affecting events. */
-export const BASE_UNIT_COST = 20;
+export const BASE_UNIT_COST = 15;
 
 /** Fixed yearly overhead, independent of scale. */
-export const FIXED_OVERHEAD = 5000;
+export const FIXED_OVERHEAD = 2500;
 
 /** Fraction of fixedAssets depreciated each year (straight-line). */
 export const DEPRECIATION_RATE = 0.1;
