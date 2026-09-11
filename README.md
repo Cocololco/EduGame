@@ -1,6 +1,8 @@
 # EduGame
 
-An educational game teaching **business management** concepts to middle/high school students.
+A business-management simulation game — play as the owner/manager of a company, competing solo or with friends/family.
+
+> The name comes from a similar business simulation the creator played at university — this is a personal project to build something like it, not a classroom/educational tool.
 
 ## Status
 
@@ -8,7 +10,14 @@ An educational game teaching **business management** concepts to middle/high sch
 
 ## Concept
 
-EduGame will be a web-based game that teaches business management fundamentals (e.g. budgeting, operations, decision-making, basic economics) to middle/high school students through interactive gameplay rather than traditional lessons.
+EduGame is a business-management simulation. The player runs a company as owner/manager: each round represents one business year — you make decisions (pricing, production, HR, finance), the year simulates, and results (and a score) come back.
+
+Two modes:
+
+- **Solo** — play against the market itself over a configurable number of years, then get a final score.
+- **Multiplayer (2–4 players)** — play with friends/family sharing one market, submit decisions each year, and the round resolves once everyone's in.
+
+Full design details live in [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md).
 
 ## Planned Tech Stack
 
