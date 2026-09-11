@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Rules — EduGame",
+  description: "How EduGame's simulation math works, in plain language.",
+};
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

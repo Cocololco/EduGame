@@ -81,6 +81,11 @@ export function ProductDecisionPanel({
             Producing more than you&apos;ll likely sell — the rest becomes inventory.
           </p>
         )}
+        {value.price < def.baseUnitCost && (
+          <p className="mt-1 text-red-700 dark:text-red-400">
+            Selling below cost (${def.baseUnitCost}/unit) — every unit sold loses money before overhead.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3">
