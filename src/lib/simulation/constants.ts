@@ -13,7 +13,15 @@ export const BASE_DEMAND_UNITS_PER_PLAYER = 1000;
 /** Price at which the price-attractiveness factor is neutral (1.0). */
 export const REFERENCE_PRICE = 50;
 
-/** How sharply demand reacts to price above/below REFERENCE_PRICE. */
+/**
+ * How sharply demand reacts to price above/below REFERENCE_PRICE.
+ * NOTE: at values > 1 (elastic demand), revenue = price * demand is
+ * monotonically decreasing in price with capacity unconstrained — i.e. the
+ * model currently rewards racing price toward zero. Real balancing will
+ * need a cost floor / capacity constraint to matter more, or a lower
+ * elasticity, or a non-constant-elasticity demand curve. Flagging rather
+ * than "fixing" since the whole model is an unbalanced placeholder still.
+ */
 export const PRICE_ELASTICITY = 1.5;
 
 /** Base cost to produce one unit, before cost-affecting events. */
