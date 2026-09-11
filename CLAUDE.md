@@ -8,15 +8,13 @@ EduGame is a business-management simulation game, built as a web app, for person
 
 Full game design (modes, decisions, scoring, persistence, open questions) lives in [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — read it before implementing simulation/game logic, and keep it updated as design decisions change.
 
-**Current state: pre-scaffold.** The repository has no source code yet — only planning docs (this file, [README.md](README.md), [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md)). Do not assume any app structure, config files, or dependencies exist until they've actually been created; check before referencing paths like `package.json`, `src/`, etc.
+**Current state: scaffolded, no game logic yet.** The Next.js app is set up (`src/app/` has only the default starter page) but no simulation/game code has been written. Docs: this file, [README.md](README.md), [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md).
 
-## Intended stack (not yet set up)
+## Stack
 
-- Frontend: JavaScript/TypeScript, React/Next.js style
-- Package manager: npm
-- Backend: none yet — planned later for auth + persistent user progress (accounts, saved progress, possibly leaderboards). Treat this as a future milestone, not current scope.
-
-When scaffolding is eventually created, update this section to reflect what's actually in place (framework version, folder layout, scripts) rather than the aspirational plan above.
+- Next.js (App Router), TypeScript, Tailwind CSS, ESLint — scaffolded via `create-next-app`, `src/` directory layout, `@/*` import alias
+- Package manager: npm (`npm run dev`, `npm run build`, `npm run lint`)
+- Backend: none yet — planned later for auth + persistent user progress (accounts, saved progress, leaderboards). Treat this as a future milestone, not current scope.
 
 ## Working conventions
 

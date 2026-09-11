@@ -6,7 +6,7 @@ A business-management simulation game — play as the owner/manager of a company
 
 ## Status
 
-🚧 Early planning stage — no code has been written yet. This repository currently only contains documentation describing the project's direction.
+🚧 Early development — the Next.js app is scaffolded but there's no game logic yet, just the default starter page.
 
 ## Concept
 
@@ -19,17 +19,20 @@ Two modes:
 
 Full design details live in [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md).
 
-## Planned Tech Stack
+## Tech Stack
 
-- **Frontend:** Web app in JavaScript/TypeScript, React/Next.js style
+- **Frontend:** [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS
 - **Backend:** Not yet built — planned for the future to support user accounts and persistent progress (auth + database)
 - **Package manager:** npm
 
-Nothing is scaffolded yet — these are the intended choices for when implementation starts.
-
 ## Getting Started
 
-There's no app to run yet. Once scaffolding lands, this section will cover install and run instructions (expected to be `npm install` / `npm run dev`).
+```bash
+npm install
+npm run dev
+```
+
+Then open [http://localhost:3000](http://localhost:3000).
 
 ## Contributing
 
