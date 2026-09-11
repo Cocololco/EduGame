@@ -3,7 +3,10 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# npm install (not ci): the committed lockfile has minor optional-dependency
+# drift from being generated on Windows; install reconciles it instead of
+# hard-failing. Revisit if/when the lockfile is regenerated on Linux.
+RUN npm install
 
 FROM node:22-alpine AS builder
 WORKDIR /app
