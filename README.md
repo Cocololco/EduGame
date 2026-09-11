@@ -6,7 +6,7 @@ A business-management simulation game — play as the owner/manager of a company
 
 ## Status
 
-🚧 Early development — the Next.js app is scaffolded but there's no game logic yet, just the default starter page.
+🚧 Early development — the Next.js app is scaffolded and a year-simulation engine exists, but there's no UI/game flow yet. Deployed (default starter page for now) at [game.corentinhillion.com](https://game.corentinhillion.com).
 
 ## Concept
 
@@ -33,6 +33,8 @@ npm run dev
 ```
 
 Then open [http://localhost:3000](http://localhost:3000).
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for how the live deployment works.
 
 ## Contributing
 
