@@ -74,6 +74,8 @@ export interface StartingConditions {
   startingCapacity: number;
   startingEmployees: number;
   startingPrice: number;
+  /** Average wage per employee. */
+  startingWageLevel: number;
   /** 0-100 index. */
   startingQuality: number;
   /** 0-100 index. */
@@ -94,7 +96,10 @@ export interface CompanyYearState {
   debt: number;
   /** Capex-derived asset value, net of depreciation. */
   fixedAssets: number;
+  /** Dollar value of unsold finished-goods stock, valued at latest unit cost. */
   inventory: number;
+  /** Physical units of unsold finished-goods stock (drives `inventory`'s $ value). */
+  inventoryUnits: number;
   /** Total assets minus total liabilities. */
   equity: number;
   employees: number;
