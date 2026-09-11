@@ -6,7 +6,7 @@ A business-management simulation game — play as the owner/manager of a company
 
 ## Status
 
-🚧 Early development — the Next.js app is scaffolded and a year-simulation engine exists, but there's no UI/game flow yet. Deployed (default starter page for now) at [game.corentinhillion.com](https://game.corentinhillion.com).
+🚧 Early development — **solo mode is playable** at [game.corentinhillion.com](https://game.corentinhillion.com) (once redeployed with the latest build). No accounts yet: games are saved in your browser's local storage only. Multiplayer has no UI yet. Numbers aren't balanced — it's a functional first pass, not tuned gameplay.
 
 ## Concept
 

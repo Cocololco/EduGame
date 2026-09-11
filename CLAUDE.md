@@ -8,7 +8,9 @@ EduGame is a business-management simulation game, built as a web app, for person
 
 Full game design (modes, decisions, scoring, persistence, open questions) lives in [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) — read it before implementing simulation/game logic, and keep it updated as design decisions change.
 
-**Current state: engine exists, no UI/game flow yet.** The Next.js app is scaffolded, `src/types/game.ts` defines the domain model, and `src/lib/simulation/` implements year simulation (solo + multiplayer). `src/app/` still only has the default starter page — no game screens wired up yet. Docs: this file, [README.md](README.md), [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+**Current state: solo mode is playable end-to-end.** `src/types/game.ts` defines the domain model; `src/lib/simulation/` implements year simulation (solo + multiplayer, tested — `npm test`); `src/lib/game/createGame.ts` + `storage.ts` wire that into a playable solo game persisted in `localStorage` (no backend yet); `src/app/` has a landing page, `/solo/new`, and `/solo/play/[id]`. Multiplayer has no UI yet — only the engine supports it. Docs: this file, [README.md](README.md), [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Known rough edges (balancing, not bugs — see constants.ts's inline notes): default decision pre-fills (e.g. "produce at full capacity") often lose money in year 1 because demand at the default price doesn't clear that much volume; cash can go negative with no bankruptcy handling; PRICE_ELASTICITY > 1 currently makes cutting price almost always revenue-positive when capacity isn't the constraint. None of this is tuned yet.
 
 ## Stack
 
