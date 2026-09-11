@@ -46,6 +46,18 @@ export const INTEREST_RATE = 0.08;
 /** $ of capacityInvestment needed to add +1 unit of production capacity. */
 export const CAPACITY_COST_PER_UNIT = 10;
 
+/**
+ * Units of yearly output one employee can staff. Production is capped by
+ * BOTH productionCapacity (the physical plant, from capacityInvestment)
+ * AND employees * UNITS_PER_EMPLOYEE (the labor to run it) — whichever is
+ * lower. At DEFAULT_STARTING_CONDITIONS (6 employees) that's 1,200, which
+ * deliberately matches the default productionCapacity so neither is the
+ * sole bottleneck out of the gate. Without this, firing your whole
+ * workforce had zero effect on what you could produce — just removed a
+ * cost, no downside.
+ */
+export const UNITS_PER_EMPLOYEE = 200;
+
 /** $ of qualityInvestment needed to add +1 quality point (0-100 scale). */
 export const QUALITY_COST_PER_POINT = 200;
 

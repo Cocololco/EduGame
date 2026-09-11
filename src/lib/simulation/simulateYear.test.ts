@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompanyYearState, RandomEvent, YearDecision } from "@/types/game";
-import { BASE_UNIT_COST, REFERENCE_PRICE } from "./constants";
+import { BASE_UNIT_COST, REFERENCE_PRICE, UNITS_PER_EMPLOYEE } from "./constants";
 import { DEFAULT_STARTING_CONDITIONS, createInitialCompanyState } from "./initialState";
 import { computeAttractiveness, simulateMultiplayerYear, simulateYear } from "./simulateYear";
 
@@ -60,6 +60,34 @@ describe("simulateYear", () => {
     });
 
     expect(result.marketMetrics.unitsProduced).toBe(100);
+  });
+
+  it("also caps production at what current staff can run, even with plenty of physical capacity", () => {
+    const state = baseState({ productionCapacity: 100000, employees: 3 });
+    const result = simulateYear({
+      decision: baseDecision("p1", {
+        productionOperations: { productionVolume: 999999, capacityInvestment: 0, qualityInvestment: 0 },
+      }),
+      openingState: state,
+      events: [],
+    });
+
+    expect(result.marketMetrics.unitsProduced).toBe(3 * UNITS_PER_EMPLOYEE);
+  });
+
+  it("firing your entire workforce means you can produce (and sell) nothing this year", () => {
+    const state = baseState({ productionCapacity: 100000, employees: 0 });
+    const result = simulateYear({
+      decision: baseDecision("p1", {
+        productionOperations: { productionVolume: 999999, capacityInvestment: 0, qualityInvestment: 0 },
+      }),
+      openingState: state,
+      events: [],
+    });
+
+    expect(result.marketMetrics.unitsProduced).toBe(0);
+    expect(result.marketMetrics.unitsSold).toBe(0);
+    expect(result.incomeStatement.revenue).toBe(0);
   });
 
   it("carries unsold inventory into next year's available stock", () => {

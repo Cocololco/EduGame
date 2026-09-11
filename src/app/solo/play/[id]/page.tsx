@@ -15,6 +15,7 @@ import {
   PRICE_ELASTICITY,
   QUALITY_COST_PER_POINT,
   REFERENCE_PRICE,
+  UNITS_PER_EMPLOYEE,
 } from "@/lib/simulation/constants";
 import { computeAttractiveness } from "@/lib/simulation/simulateYear";
 import { loadGame, saveGame } from "@/lib/game/storage";
@@ -88,12 +89,19 @@ function marketingOptions(): FieldOption[] {
   }));
 }
 
+/** The plant (productionCapacity) and the staff to run it (employees × UNITS_PER_EMPLOYEE) — whichever is lower. */
+function effectiveCapacity(state: CompanyYearState): number {
+  return Math.min(state.productionCapacity, state.employees * UNITS_PER_EMPLOYEE);
+}
+
 function productionOptions(state: CompanyYearState): FieldOption[] {
-  const capacity = Math.round(state.productionCapacity);
+  const capacity = Math.round(effectiveCapacity(state));
+  const staffLimited = state.employees * UNITS_PER_EMPLOYEE < state.productionCapacity;
   const fractions = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.85, 1];
   return fractions.map((f) => {
     const units = Math.round(capacity * f);
-    return { value: units, label: `${units} units (${Math.round(f * 100)}% of capacity)` };
+    const pctLabel = staffLimited ? "% of what your staff can run" : "% of capacity";
+    return { value: units, label: `${units} units (${Math.round(f * 100)}${pctLabel})` };
   });
 }
 
@@ -118,7 +126,10 @@ const HIRE_TIERS = [0, 1, 2, 3, 4, 5, 7, 10, 15, 20];
 function hireOptions(state: CompanyYearState): FieldOption[] {
   return HIRE_TIERS.map((v) => ({
     value: v,
-    label: v === 0 ? "0 — None" : `${v} (+$${Math.round(v * state.wageLevel).toLocaleString()}/yr wages)`,
+    label:
+      v === 0
+        ? "0 — None"
+        : `${v} (+$${Math.round(v * state.wageLevel).toLocaleString()}/yr wages, +${v * UNITS_PER_EMPLOYEE} units you can staff)`,
   }));
 }
 
@@ -126,7 +137,10 @@ const FIRE_TIERS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 15];
 function fireOptions(state: CompanyYearState): FieldOption[] {
   return FIRE_TIERS.map((v) => ({
     value: v,
-    label: v === 0 ? "0 — None" : `${v} (-${v * 5} morale, -$${Math.round(v * state.wageLevel).toLocaleString()}/yr wages)`,
+    label:
+      v === 0
+        ? "0 — None"
+        : `${v} (-${v * 5} morale, -$${Math.round(v * state.wageLevel).toLocaleString()}/yr wages, -${v * UNITS_PER_EMPLOYEE} units you can staff)`,
   }));
 }
 
@@ -266,7 +280,13 @@ function CompanyStatusCard({ state, year, totalYears }: { state: CompanyYearStat
     { label: "Equity", value: formatCurrency(state.equity) },
     { label: "Debt", value: formatCurrency(state.debt) },
     { label: "Employees", value: String(state.employees) },
-    { label: "Capacity", value: `${Math.round(state.productionCapacity)} units` },
+    {
+      label: "Capacity",
+      value:
+        effectiveCapacity(state) < state.productionCapacity
+          ? `${Math.round(effectiveCapacity(state))} staffed / ${Math.round(state.productionCapacity)} units`
+          : `${Math.round(state.productionCapacity)} units`,
+    },
     { label: "Quality", value: `${Math.round(state.quality)}/100` },
     { label: "Brand", value: `${Math.round(state.brandAwareness)}/100` },
     { label: "Morale", value: `${Math.round(state.morale)}/100` },
@@ -371,7 +391,10 @@ function DecisionForm({
   const attractiveness = computeAttractiveness(state, form.price);
   const potentialDemand = Math.round(BASE_DEMAND_UNITS_PER_PLAYER * attractiveness);
   const unitsAvailable = state.inventoryUnits + form.productionVolume;
-  const projectedUnitsSold = Math.max(0, Math.min(potentialDemand, unitsAvailable));
+  // Rounded for display — state.inventoryUnits can carry tiny float error
+  // (e.g. 497.9999999999999) from prior-year division, which otherwise
+  // leaks into this preview.
+  const projectedUnitsSold = Math.round(Math.max(0, Math.min(potentialDemand, unitsAvailable)));
   const projectedRevenue = projectedUnitsSold * form.price;
   const projectedGrossProfit = projectedUnitsSold * (form.price - BASE_UNIT_COST);
 
@@ -403,6 +426,13 @@ function DecisionForm({
         {form.productionVolume > potentialDemand && (
           <p className="mt-1 text-amber-700 dark:text-amber-400">
             You&apos;re planning to produce more than you&apos;re likely to sell — the rest becomes inventory.
+          </p>
+        )}
+        {state.employees * UNITS_PER_EMPLOYEE < state.productionCapacity && (
+          <p className="mt-1 text-amber-700 dark:text-amber-400">
+            Your {state.employees} employees can staff at most {state.employees * UNITS_PER_EMPLOYEE} units — that&apos;s
+            below your {Math.round(state.productionCapacity)}-unit capacity, so staffing (not capacity) is currently
+            your real ceiling. Hiring pays off next year, not this one.
           </p>
         )}
       </div>

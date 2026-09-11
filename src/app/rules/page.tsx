@@ -164,17 +164,25 @@ export default function RulesPage() {
 
         <Section title="Production & capacity">
           <p>
-            You can&apos;t produce more than your capacity. <strong>Capacity investment:</strong> $10 → +1 unit of
-            yearly capacity next year — usually not your first bottleneck early on. Unsold production carries over as
-            inventory and adds to what&apos;s available to sell next year.
+            You can&apos;t produce more than <strong>whichever is lower</strong>: your production capacity (starts at
+            1,200, grown by <strong>capacity investment:</strong> $10 → +1 unit next year), or what your current
+            staff can run — <strong>employees × 200 units</strong> (also 1,200 at the default 6 employees, on
+            purpose).
           </p>
+          <Callout>
+            Employees aren&apos;t optional overhead — they&apos;re what lets you use your capacity. Firing your whole
+            workforce caps you at producing (and selling) zero, not just saving on wages. Headcount changes land next
+            year, same as marketing/quality.
+          </Callout>
+          <p>Unsold production carries over as inventory and adds to what&apos;s available to sell next year.</p>
         </Section>
 
         <Section title="HR & wages">
           <p>
             Wages = employees × wage level. At default (6 × $2,500) that&apos;s <strong>$15,000/year</strong> — sized
             to leave room for profit against the revenue numbers above, but it still scales with headcount: hiring a
-            lot without the revenue to back it will eat into that margin.
+            lot without the revenue to back it will eat into that margin. Understaffing has the opposite problem —
+            see the capacity note above.
           </p>
           <p>
             <strong>Firing</strong> costs 5 morale/employee immediately. <strong>Wage adjustment</strong>: a raise

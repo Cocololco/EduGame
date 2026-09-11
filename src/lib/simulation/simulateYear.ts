@@ -25,6 +25,7 @@ import {
   PRICE_ELASTICITY,
   QUALITY_COST_PER_POINT,
   REFERENCE_PRICE,
+  UNITS_PER_EMPLOYEE,
 } from "./constants";
 
 function clamp(value: number, min: number, max: number): number {
@@ -120,10 +121,18 @@ export function simulateYear(input: SimulateYearInput): YearResult {
         computeAttractiveness(openingState, effectivePrice) *
         merged.demandMultiplier;
 
-  const unitsProduced = clamp(decision.productionOperations.productionVolume, 0, openingState.productionCapacity);
+  // Production needs both a plant to run (productionCapacity) AND staff to
+  // run it (employees * UNITS_PER_EMPLOYEE) — whichever is lower binds.
+  const laborCapacity = openingState.employees * UNITS_PER_EMPLOYEE;
+  const effectiveCapacity = Math.min(openingState.productionCapacity, laborCapacity);
+  const unitsProduced = clamp(decision.productionOperations.productionVolume, 0, effectiveCapacity);
   const unitsAvailable = openingState.inventoryUnits + unitsProduced;
   const unitsSold = Math.max(0, Math.min(potentialDemand, unitsAvailable));
-  const unsoldInventoryUnits = Math.max(0, unitsAvailable - unitsSold);
+  // Rounded once here (potentialDemand is generally fractional — a product
+  // of several non-integer multipliers) so it doesn't carry float dust
+  // (e.g. 497.9999999999999) into next year's opening inventory and every
+  // display that reads it.
+  const unsoldInventoryUnits = Math.round(Math.max(0, unitsAvailable - unitsSold));
 
   const unitCost = BASE_UNIT_COST * merged.unitCostMultiplier;
   const cogs = unitsSold * unitCost;

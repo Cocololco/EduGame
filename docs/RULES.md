@@ -50,13 +50,18 @@ Each contributes a factor to demand: `0.5 + 0.5 × (value / 100)`. So going from
 
 ## Production & capacity
 
-- You can't produce more than your **production capacity** (starts at 1,200 units/year).
-- **Capacity investment**: $10 → +1 unit of yearly capacity. Given capacity already exceeds early demand, this usually isn't your first bottleneck.
-- Unsold production doesn't disappear — it carries over as inventory (valued at that year's unit cost) and adds to what's available to sell next year, on top of whatever you produce then.
+You can't produce more than **whichever of these two is lower**:
+
+- your **production capacity** (starts at 1,200 units/year — grown by capacity investment, $10 → +1 unit next year)
+- what your **current staff can run**: `employees × 200 units`. At the default 6 employees that's also 1,200 — deliberately matching capacity, so neither is the sole bottleneck out of the gate.
+
+**This means employees aren't optional overhead — they're what lets you actually use your capacity.** Firing your whole workforce doesn't just save on wages, it caps you at producing (and selling) zero, full stop. Hiring/firing changes take effect on *next* year's production, same timing rule as marketing/quality investment — this year's headcount change doesn't unlock more output this year.
+
+Unsold production doesn't disappear — it carries over as inventory (valued at that year's unit cost) and adds to what's available to sell next year, on top of whatever you produce then.
 
 ## HR & wages
 
-- Wages expense = `employees × wage level`. At the default (6 employees × $2,500) that's **$15,000/year** — sized to leave room for profit against the revenue numbers above, but it still scales with headcount: hiring a lot without the revenue to back it will eat into that margin.
+- Wages expense = `employees × wage level`. At the default (6 employees × $2,500) that's **$15,000/year** — sized to leave room for profit against the revenue numbers above, but it still scales with headcount: hiring a lot without the revenue to back it will eat into that margin. Conversely, understaffing below `productionCapacity / 200` caps what you can produce and sell, regardless of how much capacity or demand you have — see "Production & capacity" above.
 - **Firing** costs 5 morale points per employee, immediately.
 - **Wage adjustment %**: a raise (+5%) costs more in wages going forward and adds morale (+1 point per 1%); a cut does the reverse.
 - **Training spend**: $50 → +1 morale point.
