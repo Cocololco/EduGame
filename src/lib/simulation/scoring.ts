@@ -27,8 +27,11 @@ export function computeScore(player: Player, weights: ScoreWeights = DEFAULT_SCO
   const finalValuation = lastResult ? lastResult.closingState.equity : (player.companyStates[0]?.equity ?? 0);
 
   // Only meaningful in multiplayer, where marketSharePct is populated.
-  const firstShare = player.results[0]?.marketMetrics.marketSharePct;
-  const lastShare = lastResult?.marketMetrics.marketSharePct;
+  // Shortboard (the highest-volume line) stands in for overall company share.
+  const shortboardShare = (r: typeof lastResult) =>
+    r?.incomeStatement.byProduct.find((p) => p.productId === "shortboard")?.marketSharePct;
+  const firstShare = shortboardShare(player.results[0]);
+  const lastShare = shortboardShare(lastResult);
   const marketShareGrowthPct =
     firstShare !== undefined && lastShare !== undefined ? lastShare - firstShare : undefined;
 

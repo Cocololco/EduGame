@@ -7,18 +7,15 @@ import { createSoloGame } from "@/lib/game/createGame";
 import { saveGame } from "@/lib/game/storage";
 
 const DIFFICULTY_OPTIONS: { value: DifficultyLevel; label: string; description: string }[] = [
-  {
-    value: "beginner",
-    label: "Beginner",
-    description: "Full decision set for now (per-difficulty field gating isn't built yet).",
-  },
-  { value: "standard", label: "Standard", description: "The default." },
+  { value: "beginner", label: "Beginner", description: "Just price, production, and marketing — everything else stays put." },
+  { value: "standard", label: "Standard", description: "The full decision set: staffing, training, quality, R&D, financing." },
   { value: "advanced", label: "Advanced", description: "Same as Standard for now." },
 ];
 
 export default function NewSoloGamePage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [totalYears, setTotalYears] = useState(5);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("standard");
 
@@ -29,6 +26,7 @@ export default function NewSoloGamePage() {
       difficulty,
       userId: "local-player",
       displayName: displayName.trim() || "You",
+      companyName: companyName.trim() || undefined,
     });
     saveGame(game);
     router.push(`/solo/play/${game.config.id}`);
@@ -40,7 +38,8 @@ export default function NewSoloGamePage() {
         <div>
           <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">New solo game</h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Set up a run. Starting conditions are fixed for now — see{" "}
+            Run a surfboard company across three product lines — shortboard, longboard, and luxury fishboard.
+            Starting conditions are fixed for now — see{" "}
             <code className="rounded bg-black/5 px-1 py-0.5 dark:bg-white/10">DEFAULT_STARTING_CONDITIONS</code>.
           </p>
         </div>
@@ -52,6 +51,17 @@ export default function NewSoloGamePage() {
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="You"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">Company name (optional)</span>
+          <input
+            type="text"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="e.g. Point Break Boards"
             className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
           />
         </label>

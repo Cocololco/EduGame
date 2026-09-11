@@ -6,7 +6,7 @@ Design decisions for the business-management simulation, as defined so far. This
 
 ## Premise
 
-The player is the owner/manager of a company in **one fixed industry** (manufacturing/retail-style; exact industry TBD). Each round represents **one business year**: the player makes a set of decisions, then the year is simulated and results are revealed.
+The player is the owner/manager of a **surfboard company** with three product lines — shortboard (mass market), longboard (mid-market), and luxury fishboard (niche) — see [docs/RULES.md](RULES.md) for the exact prices/costs/market sizes. Each round represents **one business year**: the player makes a set of decisions, then the year is simulated and results are revealed.
 
 ## Modes
 
@@ -26,12 +26,20 @@ The player is the owner/manager of a company in **one fixed industry** (manufact
 
 ## Decisions per year
 
-Four categories, all in scope:
+Split into **per-product** decisions (one set per product line) and **company-wide** decisions (shared across all three lines):
 
-- **Pricing & sales** — product price, marketing/sales spend, target market
-- **Production & operations** — production volume, capacity, quality, supply chain
-- **HR & staffing** — hiring/firing, wages, training, morale
-- **Finance & investment** — loans, investments, R&D spend, capex
+Per product (shortboard / longboard / fishboard, each independent):
+- **Price** and **production volume**
+- **Capacity investment** (physical plant) and **quality investment**
+- **Training spend** — raises that product's productivity, which drives labor output per employee and contributes a little to quality too
+- **Hiring/firing** and **wage adjustment** — wages aren't just a cost: they set a productivity multiplier (underpay and output per employee drops; overpay and it rises, with diminishing returns)
+
+Company-wide (not per-product):
+- **Marketing spend** → brand awareness, which boosts every product's demand
+- **R&D spend** → innovation, which boosts every product's effective quality *and* makes capacity investment cheaper company-wide
+- **Financing**: loans, loan repayment, general capex
+
+This is a meaningful departure from the original flat four-category design (pricing/production/HR/finance) — see [docs/DATA_MODEL.md](DATA_MODEL.md) for the exact type shapes.
 
 ## Simulation depth
 
@@ -50,13 +58,14 @@ Exact weighting formula is TBD — needs balancing once the simulation model exi
 
 ## Difficulty / complexity levels
 
-- Game supports **difficulty levels** — e.g. a Beginner tier exposing a reduced decision set, Advanced unlocking the full pricing/production/HR/finance depth.
-- No in-game teaching content (no tooltips/explanations) — the game is a **pure simulation**, not a tutorial. Players are assumed to already understand the underlying business concepts.
+- **Implemented**: Beginner exposes only price + production volume per product, plus company marketing spend; Standard (and, for now, Advanced) expose the full decision set. See [`src/lib/game/difficulty.ts`](../src/lib/game/difficulty.ts).
+- Contextual guidance *is* shown in the UI (each decision option's effect is spelled out inline, e.g. "$40 — Somewhat low (demand ×1.40, margin $25/unit)"), plus a dedicated `/rules` reference page — this reads as "explaining the simulation's own numbers so players can strategize," not "explaining business concepts," so it doesn't conflict with the original "no tutorial content" intent below.
+- Still true: no in-game *business-concept* teaching (what is gross margin, etc.) — the game is a simulation, not a course. Players are assumed to already understand the underlying business concepts.
 
 ## Persistence & accounts
 
-- Games must be **saveable and resumable** across sessions (e.g. picking a game back up on another day) — requires backend game-state persistence per player/session.
-- **Persistent leaderboards** across games (e.g. all-time rankings among the regular players) — ties into the planned accounts/backend.
+- **Implemented (browser-local)**: games are saveable/resumable via `localStorage` (`src/lib/game/storage.ts`), with a "My games" list (`/solo`) to resume or delete any in-progress or completed game. This satisfies the resumability goal without a backend — real cross-device/cross-browser persistence still needs one (see below).
+- **Implemented (browser-local)**: a leaderboard (`/leaderboard`, `src/lib/game/leaderboard.ts`) records every completed solo game's score in this browser, sortable by score/profit/valuation/date. Ties into the planned accounts/backend once one exists (to make it actually shared between players/devices).
 
 ## Open questions (still TBD)
 

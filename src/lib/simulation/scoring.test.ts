@@ -1,7 +1,36 @@
 import { describe, expect, it } from "vitest";
-import type { Player, YearResult } from "@/types/game";
+import type { IncomeStatement, Player, YearResult } from "@/types/game";
+import { PRODUCT_IDS } from "@/types/game";
 import { createInitialCompanyState, DEFAULT_STARTING_CONDITIONS } from "./initialState";
 import { computeScore, rankScores } from "./scoring";
+
+function emptyIncomeStatement(netProfit: number): IncomeStatement {
+  return {
+    revenue: 0,
+    cogs: 0,
+    grossProfit: 0,
+    marketingExpense: 0,
+    wagesExpense: 0,
+    trainingExpense: 0,
+    rndExpense: 0,
+    otherOperatingExpense: 0,
+    operatingProfit: netProfit,
+    interestExpense: 0,
+    netProfit,
+    byProduct: PRODUCT_IDS.map((id) => ({
+      productId: id,
+      unitsProduced: 0,
+      unitsSold: 0,
+      unsoldInventory: 0,
+      revenue: 0,
+      cogs: 0,
+      grossProfit: 0,
+      wagesExpense: 0,
+      trainingExpense: 0,
+      demandIndex: 100,
+    })),
+  };
+}
 
 function fakeResult(playerId: string, year: number, netProfit: number, equity: number): YearResult {
   const state = createInitialCompanyState(DEFAULT_STARTING_CONDITIONS);
@@ -10,19 +39,7 @@ function fakeResult(playerId: string, year: number, netProfit: number, equity: n
     year,
     openingState: { ...state, year: year - 1 },
     closingState: { ...state, year, equity },
-    incomeStatement: {
-      revenue: 0,
-      cogs: 0,
-      grossProfit: 0,
-      marketingExpense: 0,
-      wagesExpense: 0,
-      trainingExpense: 0,
-      rndExpense: 0,
-      otherOperatingExpense: 0,
-      operatingProfit: netProfit,
-      interestExpense: 0,
-      netProfit,
-    },
+    incomeStatement: emptyIncomeStatement(netProfit),
     balanceSheet: {
       cash: 0,
       inventory: 0,
@@ -33,7 +50,6 @@ function fakeResult(playerId: string, year: number, netProfit: number, equity: n
       equity,
     },
     ratios: { grossMarginPct: 0, netMarginPct: 0, roiPct: 0, debtToEquity: 0 },
-    marketMetrics: { unitsSold: 0, unitsProduced: 0, unsoldInventory: 0, demandIndex: 100 },
     eventsApplied: [],
   };
 }

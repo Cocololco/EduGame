@@ -1,14 +1,24 @@
 import Link from "next/link";
+import { ProductIcon } from "@/components/game/ProductIcon";
+import { PRODUCT_IDS } from "@/types/game";
+import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
 
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-6 py-24 dark:bg-black">
       <div className="flex w-full max-w-xl flex-col items-center gap-8 text-center">
+        <div className="flex items-end gap-4 text-zinc-300 dark:text-zinc-700">
+          {PRODUCT_IDS.map((id) => (
+            <ProductIcon key={id} productId={id} className="h-24 w-12" />
+          ))}
+        </div>
+
         <div>
           <h1 className="text-4xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">EduGame</h1>
           <p className="mt-3 text-lg text-zinc-600 dark:text-zinc-400">
-            Run a company as owner/manager. Each round is one business year of decisions — pricing, production,
-            HR, finance — then the year simulates and the results come back.
+            Run a surfboard company as owner/manager — three product lines, one brand. Each round is one business
+            year of pricing, production, staffing, and financing decisions, then the year simulates and the results
+            come back.
           </p>
         </div>
 
@@ -27,12 +37,27 @@ export default function Home() {
           </span>
         </div>
 
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <Link href="/solo" className="underline">
+            My games
+          </Link>
+          <Link href="/leaderboard" className="underline">
+            Leaderboard
+          </Link>
+          <Link href="/rules" className="underline">
+            How the simulation works
+          </Link>
+        </div>
+
         <p className="text-sm text-zinc-500 dark:text-zinc-500">
           No account needed yet — solo games are saved in this browser only.
         </p>
-        <Link href="/rules" className="text-sm text-zinc-600 underline dark:text-zinc-400">
-          How the simulation works
-        </Link>
+
+        <div className="flex gap-6 text-xs text-zinc-500 dark:text-zinc-500">
+          {PRODUCT_IDS.map((id) => (
+            <span key={id}>{PRODUCT_DEFINITIONS[id].name}</span>
+          ))}
+        </div>
       </div>
     </div>
   );

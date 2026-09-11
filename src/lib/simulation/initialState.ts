@@ -1,5 +1,7 @@
-import type { CompanyYearState, StartingConditions } from "@/types/game";
+import type { CompanyYearState, ProductId, ProductLineState, StartingConditions } from "@/types/game";
+import { PRODUCT_IDS } from "@/types/game";
 import { DEFAULT_STARTING_MORALE } from "./constants";
+import { PRODUCT_DEFINITIONS } from "./products";
 
 /**
  * Turns a player's StartingConditions into their year-0 CompanyYearState
@@ -7,41 +9,77 @@ import { DEFAULT_STARTING_MORALE } from "./constants";
  */
 export function createInitialCompanyState(startingConditions: StartingConditions): CompanyYearState {
   const { startingCash, startingDebt } = startingConditions;
+
+  const products = {} as Record<ProductId, ProductLineState>;
+  for (const id of PRODUCT_IDS) {
+    const p = startingConditions.products[id];
+    products[id] = {
+      productId: id,
+      currentPrice: p.startingPrice,
+      productionCapacity: p.startingCapacity,
+      employees: p.startingEmployees,
+      wageLevel: p.startingWageLevel,
+      quality: p.startingQuality,
+      productivity: p.startingProductivity,
+      inventoryUnits: 0,
+      inventoryValue: 0,
+    };
+  }
+
   return {
     year: 0,
     cash: startingCash,
     debt: startingDebt,
     fixedAssets: 0,
-    inventory: 0,
-    inventoryUnits: 0,
     equity: startingCash - startingDebt,
-    employees: startingConditions.startingEmployees,
-    wageLevel: startingConditions.startingWageLevel,
-    morale: DEFAULT_STARTING_MORALE,
-    productionCapacity: startingConditions.startingCapacity,
-    quality: startingConditions.startingQuality,
     brandAwareness: startingConditions.startingBrandAwareness,
-    currentPrice: startingConditions.startingPrice,
+    innovation: startingConditions.startingInnovation,
+    morale: startingConditions.startingMorale,
+    products,
   };
 }
 
 /**
- * A reasonable default starting position — symmetric, mid-range values.
- * Used as a baseline for solo games and as one option among asymmetric
- * starts in multiplayer (see docs/GAME_DESIGN.md).
+ * A reasonable default starting position — sized against constants.ts and
+ * the product catalog (src/lib/simulation/products.ts) so a
+ * reasonably-played year is profitable across all three lines. See
+ * docs/RULES.md for the worked numbers.
  *
- * Employee count/wage level are sized against constants.ts's demand/cost
- * numbers so that a sensibly-played year (price near $50, produce close to
- * what you can sell) is profitable — 6 x $2,500 = $15,000/year wages,
- * against ~$29k-42k of gross profit depending on price. See docs/RULES.md.
+ * Employee counts per line are sized to roughly match that line's demand
+ * ceiling at default quality/brand/productivity, so labor isn't the sole
+ * early bottleneck for any one product (shortboard 6, longboard 3,
+ * fishboard 1 — mirroring their relative market sizes).
  */
 export const DEFAULT_STARTING_CONDITIONS: StartingConditions = {
-  startingCash: 50000,
+  startingCash: 80000,
   startingDebt: 0,
-  startingCapacity: 1200,
-  startingEmployees: 6,
-  startingPrice: 50,
-  startingWageLevel: 2500,
-  startingQuality: 50,
   startingBrandAwareness: 30,
+  startingInnovation: 0,
+  startingMorale: DEFAULT_STARTING_MORALE,
+  products: {
+    shortboard: {
+      startingCapacity: 900,
+      startingEmployees: 6,
+      startingWageLevel: 2500,
+      startingQuality: 50,
+      startingProductivity: 50,
+      startingPrice: PRODUCT_DEFINITIONS.shortboard.referencePrice,
+    },
+    longboard: {
+      startingCapacity: 450,
+      startingEmployees: 3,
+      startingWageLevel: 2500,
+      startingQuality: 50,
+      startingProductivity: 50,
+      startingPrice: PRODUCT_DEFINITIONS.longboard.referencePrice,
+    },
+    fishboard: {
+      startingCapacity: 150,
+      startingEmployees: 1,
+      startingWageLevel: 2500,
+      startingQuality: 50,
+      startingProductivity: 50,
+      startingPrice: PRODUCT_DEFINITIONS.fishboard.referencePrice,
+    },
+  },
 };

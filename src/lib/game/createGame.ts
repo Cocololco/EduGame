@@ -1,4 +1,15 @@
-import type { DifficultyLevel, Game, GameConfig, Player, RandomEvent, YearDecision } from "@/types/game";
+import type {
+  CompanyDecision,
+  DifficultyLevel,
+  Game,
+  GameConfig,
+  Player,
+  ProductDecision,
+  ProductId,
+  RandomEvent,
+  YearDecision,
+} from "@/types/game";
+import { PRODUCT_IDS } from "@/types/game";
 import { createInitialCompanyState, DEFAULT_STARTING_CONDITIONS } from "../simulation/initialState";
 import { rollRandomEvent } from "../simulation/randomEvents";
 import { computeScore } from "../simulation/scoring";
@@ -13,6 +24,7 @@ export interface CreateSoloGameOptions {
   difficulty: DifficultyLevel;
   userId: string;
   displayName: string;
+  companyName?: string;
 }
 
 /** Creates a fresh solo game at year 0, ready to accept a year-1 decision. */
@@ -34,6 +46,7 @@ export function createSoloGame(options: CreateSoloGameOptions): Game {
     id: "p1",
     userId: options.userId,
     displayName: options.displayName,
+    companyName: options.companyName,
     joinOrder: 0,
     startingConditions: DEFAULT_STARTING_CONDITIONS,
     companyStates: [createInitialCompanyState(DEFAULT_STARTING_CONDITIONS)],
@@ -51,20 +64,34 @@ export function createSoloGame(options: CreateSoloGameOptions): Game {
   };
 }
 
+export type ProductDecisionInput = Omit<ProductDecision, "productId">;
+
+export interface YearDecisionInput {
+  company: CompanyDecision;
+  products: Record<ProductId, ProductDecisionInput>;
+}
+
 /**
- * Simulates the next year of a solo game from a submitted decision (the
- * year and submission timestamp are derived, not supplied by the caller)
- * and returns a new Game with the result applied. Pure function — doesn't
- * touch storage; callers persist the result themselves.
+ * Simulates the next year of a solo game from a submitted decision (year
+ * and product ids/submission timestamp are derived, not supplied by the
+ * caller) and returns a new Game with the result applied. Pure function —
+ * doesn't touch storage; callers persist the result themselves.
  */
-export function advanceSoloYear(game: Game, decisionInput: Omit<YearDecision, "year" | "submittedAt">): Game {
+export function advanceSoloYear(game: Game, decisionInput: YearDecisionInput): Game {
   const player = game.players[0];
   const openingState = player.companyStates[player.companyStates.length - 1];
   const year = openingState.year + 1;
 
+  const products = {} as Record<ProductId, ProductDecision>;
+  for (const id of PRODUCT_IDS) {
+    products[id] = { productId: id, ...decisionInput.products[id] };
+  }
+
   const decision: YearDecision = {
-    ...decisionInput,
+    playerId: player.id,
     year,
+    company: decisionInput.company,
+    products,
     submittedAt: new Date().toISOString(),
   };
 

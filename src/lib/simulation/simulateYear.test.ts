@@ -1,34 +1,72 @@
 import { describe, expect, it } from "vitest";
-import type { CompanyYearState, RandomEvent, YearDecision } from "@/types/game";
-import { BASE_UNIT_COST, REFERENCE_PRICE, UNITS_PER_EMPLOYEE } from "./constants";
+import type { CompanyDecision, CompanyYearState, ProductDecision, ProductId, RandomEvent, YearDecision } from "@/types/game";
+import { PRODUCT_IDS } from "@/types/game";
+import { CAPACITY_COST_PER_UNIT } from "./constants";
 import { DEFAULT_STARTING_CONDITIONS, createInitialCompanyState } from "./initialState";
-import { computeAttractiveness, simulateMultiplayerYear, simulateYear } from "./simulateYear";
+import { PRODUCT_DEFINITIONS } from "./products";
+import {
+  computeAttractiveness,
+  computeCapacityCostPerUnit,
+  computeLaborCapacity,
+  simulateMultiplayerYear,
+  simulateYear,
+} from "./simulateYear";
 
 function baseState(overrides: Partial<CompanyYearState> = {}): CompanyYearState {
   return { ...createInitialCompanyState(DEFAULT_STARTING_CONDITIONS), ...overrides };
 }
 
-function baseDecision(playerId: string, overrides: Partial<YearDecision> = {}): YearDecision {
+function noOpProductDecision(id: ProductId, overrides: Partial<ProductDecision> = {}): ProductDecision {
+  const state = DEFAULT_STARTING_CONDITIONS.products[id];
   return {
-    playerId,
-    year: 1,
-    pricingSales: { price: REFERENCE_PRICE, marketingSpend: 0 },
-    productionOperations: { productionVolume: 1000, capacityInvestment: 0, qualityInvestment: 0 },
-    hrStaffing: { hires: 0, fires: 0, wageAdjustmentPct: 0, trainingSpend: 0 },
-    financeInvestment: { loanAmountRequested: 0, loanRepayment: 0, rndSpend: 0, capexSpend: 0 },
-    submittedAt: new Date(0).toISOString(),
+    productId: id,
+    price: state.startingPrice,
+    productionVolume: state.startingCapacity,
+    capacityInvestment: 0,
+    qualityInvestment: 0,
+    trainingSpend: 0,
+    hires: 0,
+    fires: 0,
+    wageAdjustmentPct: 0,
     ...overrides,
   };
 }
 
+function noOpCompanyDecision(overrides: Partial<CompanyDecision> = {}): CompanyDecision {
+  return { marketingSpend: 0, rndSpend: 0, loanAmountRequested: 0, loanRepayment: 0, capexSpend: 0, ...overrides };
+}
+
+function baseDecision(
+  playerId: string,
+  overrides: { company?: Partial<CompanyDecision>; products?: Partial<Record<ProductId, Partial<ProductDecision>>> } = {},
+): YearDecision {
+  const products = {} as Record<ProductId, ProductDecision>;
+  for (const id of PRODUCT_IDS) {
+    products[id] = noOpProductDecision(id, overrides.products?.[id]);
+  }
+  return {
+    playerId,
+    year: 1,
+    company: noOpCompanyDecision(overrides.company),
+    products,
+    submittedAt: new Date(0).toISOString(),
+  };
+}
+
 describe("simulateYear", () => {
-  it("produces a self-consistent result for a plain year", () => {
+  it("produces a self-consistent result across all three products", () => {
     const state = baseState();
     const result = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
 
-    expect(result.marketMetrics.unitsSold).toBeGreaterThan(0);
-    expect(result.marketMetrics.unitsSold).toBeLessThanOrEqual(result.marketMetrics.unitsProduced);
-    expect(result.incomeStatement.revenue).toBeCloseTo(result.marketMetrics.unitsSold * REFERENCE_PRICE, 6);
+    expect(result.incomeStatement.byProduct).toHaveLength(3);
+    for (const p of result.incomeStatement.byProduct) {
+      expect(p.unitsSold).toBeGreaterThan(0);
+      expect(p.unitsSold).toBeLessThanOrEqual(p.unitsProduced);
+    }
+    expect(result.incomeStatement.revenue).toBeCloseTo(
+      result.incomeStatement.byProduct.reduce((s, p) => s + p.revenue, 0),
+      6,
+    );
     // Balance sheet must balance by construction.
     expect(result.balanceSheet.totalAssets - result.balanceSheet.totalLiabilities).toBeCloseTo(
       result.balanceSheet.equity,
@@ -37,79 +75,85 @@ describe("simulateYear", () => {
     expect(result.closingState.year).toBe(state.year + 1);
   });
 
-  it("sells fewer units when priced above the reference price than when priced at it, all else equal", () => {
+  it("sells fewer units of a product priced above its reference price than at it", () => {
     const state = baseState();
     const cheap = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
     const expensive = simulateYear({
-      decision: baseDecision("p1", { pricingSales: { price: REFERENCE_PRICE * 2, marketingSpend: 0 } }),
+      decision: baseDecision("p1", { products: { shortboard: { price: PRODUCT_DEFINITIONS.shortboard.referencePrice * 2 } } }),
       openingState: state,
       events: [],
     });
 
-    expect(expensive.marketMetrics.demandIndex).toBeLessThan(cheap.marketMetrics.demandIndex);
+    const share = (r: typeof cheap) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+    expect(share(expensive).demandIndex).toBeLessThan(share(cheap).demandIndex);
   });
 
-  it("caps production (and therefore units sold) at production capacity", () => {
-    const state = baseState({ productionCapacity: 100 });
+  it("caps a product's production at whichever is lower: capacity or staffed labor", () => {
+    const state = baseState();
+    state.products.shortboard = { ...state.products.shortboard, productionCapacity: 100 };
     const result = simulateYear({
-      decision: baseDecision("p1", {
-        productionOperations: { productionVolume: 999999, capacityInvestment: 0, qualityInvestment: 0 },
-      }),
+      decision: baseDecision("p1", { products: { shortboard: { productionVolume: 999999 } } }),
       openingState: state,
       events: [],
     });
-
-    expect(result.marketMetrics.unitsProduced).toBe(100);
+    const shortboard = result.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+    expect(shortboard.unitsProduced).toBe(100);
   });
 
-  it("also caps production at what current staff can run, even with plenty of physical capacity", () => {
-    const state = baseState({ productionCapacity: 100000, employees: 3 });
+  it("firing an entire product line's staff means it produces and sells nothing next year", () => {
+    const state = baseState();
+    state.products.fishboard = { ...state.products.fishboard, employees: 0 };
     const result = simulateYear({
-      decision: baseDecision("p1", {
-        productionOperations: { productionVolume: 999999, capacityInvestment: 0, qualityInvestment: 0 },
-      }),
+      decision: baseDecision("p1", { products: { fishboard: { productionVolume: 999999 } } }),
       openingState: state,
       events: [],
     });
-
-    expect(result.marketMetrics.unitsProduced).toBe(3 * UNITS_PER_EMPLOYEE);
+    const fishboard = result.incomeStatement.byProduct.find((p) => p.productId === "fishboard")!;
+    expect(fishboard.unitsProduced).toBe(0);
+    expect(fishboard.unitsSold).toBe(0);
+    expect(fishboard.revenue).toBe(0);
   });
 
-  it("firing your entire workforce means you can produce (and sell) nothing this year", () => {
-    const state = baseState({ productionCapacity: 100000, employees: 0 });
+  it("higher wages raise labor capacity (productivity), all else equal", () => {
+    const state = baseState();
+    const lowState = { ...state.products.shortboard, wageLevel: 500 };
+    const highState = { ...state.products.shortboard, wageLevel: 5000 };
+    expect(computeLaborCapacity(highState)).toBeGreaterThan(computeLaborCapacity(lowState));
+  });
+
+  it("training raises productivity next year, which raises labor capacity the year after", () => {
+    const state = baseState();
     const result = simulateYear({
-      decision: baseDecision("p1", {
-        productionOperations: { productionVolume: 999999, capacityInvestment: 0, qualityInvestment: 0 },
-      }),
+      decision: baseDecision("p1", { products: { shortboard: { trainingSpend: 5000 } } }),
       openingState: state,
       events: [],
     });
-
-    expect(result.marketMetrics.unitsProduced).toBe(0);
-    expect(result.marketMetrics.unitsSold).toBe(0);
-    expect(result.incomeStatement.revenue).toBe(0);
+    expect(result.closingState.products.shortboard.productivity).toBeGreaterThan(state.products.shortboard.productivity);
+    expect(computeLaborCapacity(result.closingState.products.shortboard)).toBeGreaterThan(
+      computeLaborCapacity(state.products.shortboard),
+    );
   });
 
-  it("carries unsold inventory into next year's available stock", () => {
-    // Tiny demand (very high price) so most production goes unsold.
-    const state = baseState({ productionCapacity: 5000 });
-    const result = simulateYear({
-      decision: baseDecision("p1", {
-        pricingSales: { price: REFERENCE_PRICE * 20, marketingSpend: 0 },
-        productionOperations: { productionVolume: 1000, capacityInvestment: 0, qualityInvestment: 0 },
-      }),
-      openingState: state,
-      events: [],
-    });
-
-    expect(result.closingState.inventoryUnits).toBeGreaterThan(0);
-    expect(result.closingState.inventory).toBeCloseTo(result.closingState.inventoryUnits * BASE_UNIT_COST, 6);
+  it("R&D (innovation) raises the effective quality/attractiveness used for demand", () => {
+    const state = baseState({ innovation: 0 });
+    const price = PRODUCT_DEFINITIONS.shortboard.referencePrice;
+    const low = computeAttractiveness(state.products.shortboard, state.brandAwareness, 0, price, price);
+    const high = computeAttractiveness(state.products.shortboard, state.brandAwareness, 100, price, price);
+    expect(high).toBeGreaterThan(low);
   });
 
-  it("a positive global demand-shock event increases units sold (production/capacity unconstrained)", () => {
-    const state = baseState({ productionCapacity: 100000 });
+  it("R&D (innovation) reduces the effective cost of capacity investment", () => {
+    expect(computeCapacityCostPerUnit(100)).toBeLessThan(computeCapacityCostPerUnit(0));
+    expect(computeCapacityCostPerUnit(0)).toBe(CAPACITY_COST_PER_UNIT);
+  });
+
+  it("a positive global demand-shock event increases units sold for every product (labor/capacity unconstrained)", () => {
+    const state = baseState();
+    for (const id of PRODUCT_IDS) {
+      state.products[id] = { ...state.products[id], productionCapacity: 100000, employees: 1000 };
+    }
     const decision = baseDecision("p1", {
-      productionOperations: { productionVolume: 100000, capacityInvestment: 0, qualityInvestment: 0 },
+      products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
     });
     const noEvent = simulateYear({ decision, openingState: state, events: [] });
     const boostEvent: RandomEvent = {
@@ -122,42 +166,47 @@ describe("simulateYear", () => {
     };
     const withEvent = simulateYear({ decision, openingState: state, events: [boostEvent] });
 
-    expect(withEvent.marketMetrics.unitsSold).toBeGreaterThan(noEvent.marketMetrics.unitsSold);
+    for (const id of PRODUCT_IDS) {
+      const before = noEvent.incomeStatement.byProduct.find((p) => p.productId === id)!;
+      const after = withEvent.incomeStatement.byProduct.find((p) => p.productId === id)!;
+      expect(after.unitsSold).toBeGreaterThan(before.unitsSold);
+    }
   });
 
-  it("a price-cap event reduces revenue but does not change the closing sticker price", () => {
-    const state = baseState({ productionCapacity: 100000 });
+  it("a player-scoped event only affects the product it targets", () => {
+    const state = baseState();
+    for (const id of PRODUCT_IDS) {
+      state.products[id] = { ...state.products[id], productionCapacity: 100000, employees: 1000 };
+    }
     const decision = baseDecision("p1", {
-      pricingSales: { price: 100, marketingSpend: 0 },
-      productionOperations: { productionVolume: 100000, capacityInvestment: 0, qualityInvestment: 0 },
+      products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
     });
-    const capEvent: RandomEvent = {
-      id: "evt_cap",
+    const noEvent = simulateYear({ decision, openingState: state, events: [] });
+    const targetedEvent: RandomEvent = {
+      id: "evt_test",
       year: 1,
-      type: "competitor_price_war",
+      type: "demand_shock_positive",
       scope: "player",
       affectedPlayerId: "p1",
       description: "test",
-      effects: { priceCapMultiplier: 0.5 },
+      effects: { demandMultiplier: 1.5, productId: "longboard" },
     };
-    const uncapped = simulateYear({ decision, openingState: state, events: [] });
-    const capped = simulateYear({ decision, openingState: state, events: [capEvent] });
+    const withEvent = simulateYear({ decision, openingState: state, events: [targetedEvent] });
 
-    // With elastic demand (PRICE_ELASTICITY > 1) a forced price cut actually
-    // raises revenue here (more units sold than the price drop "costs"), but
-    // it still compresses margin since unit cost is unaffected.
-    expect(capped.ratios.grossMarginPct).toBeLessThan(uncapped.ratios.grossMarginPct);
-    // The player's set price still carries forward as the sticker price.
-    expect(capped.closingState.currentPrice).toBe(100);
+    const longboardBefore = noEvent.incomeStatement.byProduct.find((p) => p.productId === "longboard")!;
+    const longboardAfter = withEvent.incomeStatement.byProduct.find((p) => p.productId === "longboard")!;
+    expect(longboardAfter.unitsSold).toBeGreaterThan(longboardBefore.unitsSold);
+
+    const shortboardBefore = noEvent.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+    const shortboardAfter = withEvent.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+    expect(shortboardAfter.unitsSold).toBeCloseTo(shortboardBefore.unitsSold, 6);
   });
 
   it("a loan increases both cash and debt by the same amount, all else equal", () => {
     const state = baseState();
     const withoutLoan = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
     const withLoan = simulateYear({
-      decision: baseDecision("p1", {
-        financeInvestment: { loanAmountRequested: 10000, loanRepayment: 0, rndSpend: 0, capexSpend: 0 },
-      }),
+      decision: baseDecision("p1", { company: { loanAmountRequested: 10000 } }),
       openingState: state,
       events: [],
     });
@@ -166,46 +215,61 @@ describe("simulateYear", () => {
     expect(withLoan.closingState.cash - withoutLoan.closingState.cash).toBeCloseTo(10000, 6);
   });
 
-  it("firing employees reduces morale and headcount", () => {
-    const state = baseState({ employees: 10, morale: 70 });
+  it("firing employees on one product line reduces company-wide morale and that line's headcount", () => {
+    const state = baseState();
     const result = simulateYear({
-      decision: baseDecision("p1", { hrStaffing: { hires: 0, fires: 3, wageAdjustmentPct: 0, trainingSpend: 0 } }),
+      decision: baseDecision("p1", { products: { shortboard: { fires: 3 } } }),
       openingState: state,
       events: [],
     });
-
-    expect(result.closingState.employees).toBe(7);
-    expect(result.closingState.morale).toBeLessThan(70);
+    expect(result.closingState.products.shortboard.employees).toBe(state.products.shortboard.employees - 3);
+    expect(result.closingState.morale).toBeLessThan(state.morale);
   });
 });
 
 describe("computeAttractiveness", () => {
-  it("increases with quality and brand awareness, decreases with price", () => {
-    const low = computeAttractiveness(baseState({ quality: 10, brandAwareness: 10 }), REFERENCE_PRICE);
-    const high = computeAttractiveness(baseState({ quality: 90, brandAwareness: 90 }), REFERENCE_PRICE);
+  it("increases with quality, productivity, brand and innovation; decreases with price", () => {
+    const state = baseState();
+    const price = PRODUCT_DEFINITIONS.shortboard.referencePrice;
+
+    const low = computeAttractiveness(
+      { ...state.products.shortboard, quality: 10, productivity: 10 },
+      10,
+      0,
+      price,
+      price,
+    );
+    const high = computeAttractiveness(
+      { ...state.products.shortboard, quality: 90, productivity: 90 },
+      90,
+      90,
+      price,
+      price,
+    );
     expect(high).toBeGreaterThan(low);
 
-    const cheap = computeAttractiveness(baseState(), REFERENCE_PRICE / 2);
-    const expensive = computeAttractiveness(baseState(), REFERENCE_PRICE * 2);
+    const cheap = computeAttractiveness(state.products.shortboard, state.brandAwareness, 0, price / 2, price);
+    const expensive = computeAttractiveness(state.products.shortboard, state.brandAwareness, 0, price * 2, price);
     expect(cheap).toBeGreaterThan(expensive);
   });
 });
 
 describe("simulateMultiplayerYear", () => {
-  it("splits shares that sum to ~100 and gives identical players equal shares", () => {
-    const state = baseState({ productionCapacity: 100000 });
-    const decision1 = baseDecision("p1", {
-      productionOperations: { productionVolume: 100000, capacityInvestment: 0, qualityInvestment: 0 },
-    });
-    const decision2 = baseDecision("p2", {
-      productionOperations: { productionVolume: 100000, capacityInvestment: 0, qualityInvestment: 0 },
-    });
+  it("splits each product's shares to ~100 and gives identical players equal shares", () => {
+    const state = baseState();
+    for (const id of PRODUCT_IDS) {
+      state.products[id] = { ...state.products[id], productionCapacity: 100000, employees: 1000 };
+    }
+    const decision = (playerId: string) =>
+      baseDecision(playerId, {
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+      });
 
     const { market, results } = simulateMultiplayerYear({
       year: 1,
       players: [
-        { decision: decision1, openingState: state, playerEvents: [] },
-        { decision: decision2, openingState: state, playerEvents: [] },
+        { decision: decision("p1"), openingState: state, playerEvents: [] },
+        { decision: decision("p2"), openingState: state, playerEvents: [] },
       ],
       globalEvents: [],
     });
@@ -214,15 +278,28 @@ describe("simulateMultiplayerYear", () => {
     expect(totalShare).toBeCloseTo(100, 6);
     expect(market.playerShares["p1"]).toBeCloseTo(50, 6);
     expect(market.playerShares["p2"]).toBeCloseTo(50, 6);
-    expect(results[0].marketMetrics.unitsSold).toBeCloseTo(results[1].marketMetrics.unitsSold, 6);
+
+    for (const id of PRODUCT_IDS) {
+      const s1 = results[0].incomeStatement.byProduct.find((p) => p.productId === id)!;
+      const s2 = results[1].incomeStatement.byProduct.find((p) => p.productId === id)!;
+      expect(s1.unitsSold).toBeCloseTo(s2.unitsSold, 6);
+      expect(s1.marketSharePct).toBeCloseTo(50, 6);
+    }
   });
 
   it("gives a cheaper/higher-quality player a larger share than a rival", () => {
-    const weakState = baseState({ quality: 30, brandAwareness: 20, productionCapacity: 100000 });
-    const strongState = baseState({ quality: 90, brandAwareness: 90, productionCapacity: 100000 });
-    const decision = (id: string) =>
-      baseDecision(id, {
-        productionOperations: { productionVolume: 100000, capacityInvestment: 0, qualityInvestment: 0 },
+    const weakState = baseState();
+    const strongState = baseState();
+    for (const id of PRODUCT_IDS) {
+      weakState.products[id] = { ...weakState.products[id], quality: 30, productionCapacity: 100000, employees: 1000 };
+      strongState.products[id] = { ...strongState.products[id], quality: 90, productionCapacity: 100000, employees: 1000 };
+    }
+    weakState.brandAwareness = 20;
+    strongState.brandAwareness = 90;
+
+    const decision = (playerId: string) =>
+      baseDecision(playerId, {
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
       });
 
     const { market } = simulateMultiplayerYear({
