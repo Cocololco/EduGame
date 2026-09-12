@@ -3,13 +3,43 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { Game } from "@/types/game";
+import type { CountryId, Game } from "@/types/game";
 import { loadGame } from "@/lib/game/storage";
 import { formatCurrency, formatNumber, formatPct } from "@/lib/format";
+import { getCountryDefinition } from "@/lib/simulation/countries";
 import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
 import { ProductIcon } from "@/components/game/ProductIcon";
 import { ProfitTrendChart } from "@/components/game/ProfitTrendChart";
 import { buildFinancialsCsv, downloadTextFile } from "@/lib/game/exportCsv";
+
+interface CountryTotals {
+  countryId: CountryId;
+  unitsSold: number;
+  revenue: number;
+  cogs: number;
+  grossProfit: number;
+}
+
+/**
+ * Sums each product's byCountry breakdown into one company-wide figure per
+ * country, sorted by revenue. Defensive against older saved games whose
+ * results predate this field (byCountry didn't exist yet) — those years
+ * just show no country breakdown rather than crashing the page.
+ */
+function aggregateByCountry(byProduct: { byCountry?: { countryId: CountryId; unitsSold: number; revenue: number; cogs: number }[] }[]): CountryTotals[] {
+  const totals = new Map<CountryId, CountryTotals>();
+  for (const p of byProduct) {
+    for (const c of p.byCountry ?? []) {
+      const existing = totals.get(c.countryId) ?? { countryId: c.countryId, unitsSold: 0, revenue: 0, cogs: 0, grossProfit: 0 };
+      existing.unitsSold += c.unitsSold;
+      existing.revenue += c.revenue;
+      existing.cogs += c.cogs;
+      existing.grossProfit += c.revenue - c.cogs;
+      totals.set(c.countryId, existing);
+    }
+  }
+  return Array.from(totals.values()).sort((a, b) => b.revenue - a.revenue);
+}
 
 function StatementRow({
   label,
@@ -100,6 +130,8 @@ export default function FinancialsClient() {
   const year = selectedYear ?? results.length;
   const result = results.find((r) => r.year === year) ?? results[results.length - 1];
   const { incomeStatement: is, balanceSheet: bs, ratios } = result;
+  const countryRows = aggregateByCountry(is.byProduct);
+  const maxCountryRevenue = Math.max(1, ...countryRows.map((r) => r.revenue));
 
   return (
     <div className="flex flex-1 justify-center bg-zinc-50 px-6 py-12 dark:bg-black">
@@ -245,6 +277,54 @@ export default function FinancialsClient() {
             </table>
           </div>
         </div>
+
+        {countryRows.length > 1 && (
+          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+            <h2 className="mb-3 text-base font-semibold text-zinc-950 dark:text-zinc-50">By country — Year {year}</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                    <th className="py-1.5 pr-4 font-medium">Country</th>
+                    <th className="py-1.5 pr-4 font-medium">Units sold</th>
+                    <th className="py-1.5 pr-4 font-medium">Revenue</th>
+                    <th className="py-1.5 pr-4 font-medium">COGS</th>
+                    <th className="py-1.5 pr-4 font-medium">Gross profit</th>
+                    <th className="py-1.5 pr-4 font-medium">Share of revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {countryRows.map((r) => (
+                    <tr key={r.countryId} className="border-b border-zinc-100 dark:border-zinc-900">
+                      <td className="py-1.5 pr-4 text-zinc-800 dark:text-zinc-200">{getCountryDefinition(r.countryId).name}</td>
+                      <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatNumber(Math.round(r.unitsSold))}</td>
+                      <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatCurrency(r.revenue)}</td>
+                      <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatCurrency(r.cogs)}</td>
+                      <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatCurrency(r.grossProfit)}</td>
+                      <td className="py-1.5 pr-4">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-900">
+                            <div
+                              className="h-full rounded-full bg-zinc-400 dark:bg-zinc-600"
+                              style={{ width: `${Math.max(2, (r.revenue / maxCountryRevenue) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {is.revenue > 0 ? formatPct((r.revenue / is.revenue) * 100) : "0%"}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+              Summed across all three products. Only appears once you&apos;re licensed in more than one country —
+              see the company status page&apos;s international table for per-product demand.
+            </p>
+          </div>
+        )}
 
         {result.eventsApplied.length > 0 && (
           <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">

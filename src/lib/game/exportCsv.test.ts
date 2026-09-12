@@ -34,6 +34,7 @@ function fakeResult(year: number, netProfit: number): YearResult {
         wagesExpense: 20,
         trainingExpense: 0,
         demandIndex: 100,
+        byCountry: [],
       })),
     },
     balanceSheet: {

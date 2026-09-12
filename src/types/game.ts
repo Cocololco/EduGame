@@ -382,6 +382,14 @@ export interface RandomEvent {
 // ===== Simulated year result ================================================
 
 /** Per-product revenue/cost breakdown for one year. */
+/** One product's revenue/units/COGS attributable to one country this year — see ProductYearResult.byCountry. */
+export interface ProductCountryResult {
+  countryId: CountryId;
+  unitsSold: number;
+  revenue: number;
+  cogs: number;
+}
+
 export interface ProductYearResult {
   productId: ProductId;
   unitsProduced: number;
@@ -395,6 +403,14 @@ export interface ProductYearResult {
   /** Relative demand this product saw this year; 100 = baseline. */
   demandIndex: number;
   marketSharePct?: number;
+  /**
+   * This product's revenue/units/COGS split by destination country — only
+   * the countries the company was actually licensed in that year appear
+   * (so a fresh game shows just `["france"]`). Sums back exactly to this
+   * product's own unitsSold/revenue/cogs above (proportional rationing
+   * under a capacity shortfall preserves each country's share).
+   */
+  byCountry: ProductCountryResult[];
 }
 
 export interface IncomeStatement {

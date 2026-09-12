@@ -748,3 +748,73 @@ describe("multi-factory production", () => {
     expect(unitsProduced).toBe(100);
   });
 });
+
+describe("per-country financials breakdown", () => {
+  it("solo: byCountry sums back exactly to the product's own unitsSold/revenue/cogs, one entry per licensed country", () => {
+    const state = baseState({ licensedCountries: ["france", "australia"] });
+    state.products.shortboard = { ...state.products.shortboard, productionCapacity: 100000, employees: 1000 };
+    const decision = baseDecision("p1", { products: { shortboard: { productionVolumeByFactory: { france: 100000 } } } });
+
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const shortboard = result.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+
+    expect(shortboard.byCountry.map((c) => c.countryId).sort()).toEqual(["australia", "france"]);
+    const summedUnits = shortboard.byCountry.reduce((sum, c) => sum + c.unitsSold, 0);
+    const summedRevenue = shortboard.byCountry.reduce((sum, c) => sum + c.revenue, 0);
+    const summedCogs = shortboard.byCountry.reduce((sum, c) => sum + c.cogs, 0);
+    expect(summedUnits).toBeCloseTo(shortboard.unitsSold, 4);
+    expect(summedRevenue).toBeCloseTo(shortboard.revenue, 4);
+    expect(summedCogs).toBeCloseTo(shortboard.cogs, 4);
+
+    // France has a factory (no transport surcharge); Australia doesn't
+    // (see factoryCountries default ["france"]) — Australia's per-unit
+    // cost should be the higher one.
+    const france = shortboard.byCountry.find((c) => c.countryId === "france")!;
+    const australia = shortboard.byCountry.find((c) => c.countryId === "australia")!;
+    expect(australia.cogs / australia.unitsSold).toBeGreaterThan(france.cogs / france.unitsSold);
+  });
+
+  it("solo: byCountry still sums correctly when capacity can't cover full demand (proportional rationing)", () => {
+    const state = baseState({ licensedCountries: ["france", "australia"] });
+    state.products.shortboard = { ...state.products.shortboard, productionCapacity: 50, employees: 1000 }; // far below uncapped demand
+    const decision = baseDecision("p1", { products: { shortboard: { productionVolumeByFactory: { france: 50 } } } });
+
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const shortboard = result.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+
+    expect(shortboard.unitsProduced).toBe(50);
+    const summedUnits = shortboard.byCountry.reduce((sum, c) => sum + c.unitsSold, 0);
+    expect(summedUnits).toBeCloseTo(shortboard.unitsSold, 4);
+  });
+
+  it("multiplayer: byCountry sums back to the aggregate too, and a country a player isn't licensed in never appears for them", () => {
+    const franceOnly = baseState({ licensedCountries: ["france"] });
+    const bothCountries = baseState({ licensedCountries: ["france", "australia"] });
+    for (const s of [franceOnly, bothCountries]) {
+      s.products.shortboard = { ...s.products.shortboard, productionCapacity: 100000, employees: 1000 };
+    }
+    const decision = (playerId: string) =>
+      baseDecision(playerId, { products: { shortboard: { productionVolumeByFactory: { france: 100000 } } } });
+
+    const { results } = simulateMultiplayerYear({
+      year: 1,
+      players: [
+        { decision: decision("franceOnly"), openingState: franceOnly, playerEvents: [] },
+        { decision: decision("both"), openingState: bothCountries, playerEvents: [] },
+      ],
+      globalEvents: [],
+    });
+
+    const shortboard = (i: number) => results[i].incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+
+    expect(shortboard(0).byCountry.map((c) => c.countryId)).toEqual(["france"]);
+    expect(shortboard(1).byCountry.map((c) => c.countryId).sort()).toEqual(["australia", "france"]);
+
+    for (const i of [0, 1]) {
+      const summedUnits = shortboard(i).byCountry.reduce((sum, c) => sum + c.unitsSold, 0);
+      const summedRevenue = shortboard(i).byCountry.reduce((sum, c) => sum + c.revenue, 0);
+      expect(summedUnits).toBeCloseTo(shortboard(i).unitsSold, 4);
+      expect(summedRevenue).toBeCloseTo(shortboard(i).revenue, 4);
+    }
+  });
+});

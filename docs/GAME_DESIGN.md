@@ -77,7 +77,6 @@ Exact weighting formula is TBD — needs balancing once the simulation model exi
 
 ## Open questions (still TBD)
 
-- **International expansion UI polish** — the engine, decisions, and status display are built (see "Decisions per year" above and [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md)); a per-country breakdown on the financials page (revenue/COGS split by country, not just by product) is still deferred, per REGIONS_DESIGN.md's suggested build order.
 - Exact scoring formula / weights for the composite score
 - Randomness tuning — how frequent/severe events are, whether difficulty level affects event frequency
 - What happens if a player disconnects/never comes back mid-multiplayer-game — right now the game just waits on them forever; no timeout, no way to remove/replace a stalled player

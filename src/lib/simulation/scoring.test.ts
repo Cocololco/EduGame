@@ -28,6 +28,7 @@ function emptyIncomeStatement(netProfit: number): IncomeStatement {
       wagesExpense: 0,
       trainingExpense: 0,
       demandIndex: 100,
+      byCountry: [],
     })),
   };
 }

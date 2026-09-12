@@ -64,6 +64,8 @@ Decisions: `ProductDecision.openFactoryIn?: CountryId` ADDS a factory (on top of
 
 `allocateDemandShares`'s per-category blending (`blendDemandWeights` in `simulateYear.ts`) now runs per (product, country) pair in multiplayer, among only the players licensed in that country, using each player's price *for that country*; solo mode sums demand across every licensed country directly, each computed from that country's own price. A flat `TRANSPORT_COST_PER_UNIT` surcharge applies to units sold into a country with no open factory for that product; wages are weighted by each open factory's share of that year's requested production (`wagesExpense = employees × wageLevel × Σ share_f × laborCostMultiplier_f`). Market research is a UI-only fog-of-war gate — the engine always uses the real weights regardless of `researchedCountries`.
 
+`ProductYearResult.byCountry: ProductCountryResult[]` carries that same per-country split (unitsSold/revenue/cogs) into the result, one entry per country the company was licensed in that year — the financials page's "By country" table sums this across all three products. Because rationing under a capacity shortfall is applied proportionally (every country's SHARE of demand is preserved whether measured before or after rationing), `byCountry` always sums back exactly to the product's own `unitsSold`/`revenue`/`cogs`, in both solo (`computeSoloCountryDemand`'s `perCountry`) and multiplayer (`simulateMultiplayerYear`'s `countryDemandOverride`, since a player's real price-cap event can't be applied until `simulateYear` itself knows about it).
+
 ## Difficulty levels
 
 `DifficultyLevel` doesn't change the data shape — a `YearDecision` always has the full `CompanyDecision` + all three `ProductDecision`s. What changes is **which fields the UI exposes** (see [`src/lib/game/difficulty.ts`](../src/lib/game/difficulty.ts)): Beginner shows only price/production per product plus company marketing; Standard shows everything except international expansion; Advanced additionally exposes `relocateFactoryTo`/`licenseCountry`/`researchCountry`. Fields not shown stay at their form default (usually unset/no-op), so simulation logic never special-cases a tier.
@@ -84,7 +86,6 @@ Decisions: `ProductDecision.openFactoryIn?: CountryId` ADDS a factory (on top of
 
 Carried over from GAME_DESIGN.md, plus data-model-specific ones:
 
-- **Regions UI polish**: the engine and decision UI are built (see "International expansion" above), but the financials page still has no per-country breakdown — only the per-product one. Deferred per REGIONS_DESIGN.md's suggested build order.
 - Exact `roiPct` base (equity vs. total assets) and the composite score's actual weight values
 - Whether `CompanyYearState`/`YearResult` need per-year `id`s once this is persisted in a real database (this model assumes array-order-by-year is enough for now)
 - Multiplayer disconnect/never-comes-back handling — a game just waits forever on a missing `pendingDecision`, no timeout or player-removal path
