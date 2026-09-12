@@ -16,6 +16,7 @@ import { ProductDecisionPanel } from "@/components/game/ProductDecisionPanel";
 import { CompanyDecisionPanel } from "@/components/game/CompanyDecisionPanel";
 import { YearResultSummaryCard } from "@/components/game/YearResultSummaryCard";
 import { FinalResultsCard } from "@/components/game/FinalResultsCard";
+import { Button } from "@/components/ui/Button";
 
 type FormState = YearDecisionInput;
 
@@ -93,11 +94,14 @@ export default function PlayClient() {
     <div className="flex flex-1 justify-center bg-zinc-50 px-6 py-12 dark:bg-black">
       <div className="flex w-full max-w-5xl flex-col gap-6">
         <div className="flex items-center justify-between">
-          <Link href="/solo" className="text-sm text-zinc-600 underline dark:text-zinc-400">
+          <Link href="/solo" className="text-sm text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900 dark:text-zinc-400 dark:decoration-zinc-700 dark:hover:text-zinc-100">
             ← My games
           </Link>
           <div className="flex items-center gap-4">
-            <Link href={`/solo/play/${game.config.id}/financials`} className="text-sm text-zinc-600 underline dark:text-zinc-400">
+            <Link
+              href={`/solo/play/${game.config.id}/financials`}
+              className="text-sm font-medium text-teal-700 underline decoration-teal-300 underline-offset-4 hover:text-teal-800 dark:text-teal-400 dark:decoration-teal-800 dark:hover:text-teal-300"
+            >
               Full financials →
             </Link>
             <button
@@ -133,7 +137,7 @@ export default function PlayClient() {
           <>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Each option shows its effect. Not sure what a number means?{" "}
-              <Link href="/rules" className="underline" target="_blank">
+              <Link href="/rules" className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300" target="_blank">
                 See the rules
               </Link>
               .
@@ -163,12 +167,9 @@ export default function PlayClient() {
               difficulty={game.config.difficulty}
             />
 
-            <button
-              onClick={handleSubmit}
-              className="flex h-12 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-base font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200 sm:w-auto"
-            >
+            <Button onClick={handleSubmit} size="lg" className="w-full sm:w-auto">
               Submit year {game.currentYear + 1}
-            </button>
+            </Button>
           </>
         )}
 

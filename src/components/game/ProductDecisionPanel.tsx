@@ -20,6 +20,8 @@ import {
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { getCountryDefinition } from "@/lib/simulation/countries";
 import { computeAttractiveness } from "@/lib/simulation/simulateYear";
+import { Card } from "@/components/ui/Card";
+import { SELECT_CLASS } from "@/components/ui/field";
 import { ProductIcon } from "./ProductIcon";
 
 interface Props {
@@ -76,16 +78,16 @@ export function ProductDecisionPanel({
   const showPriceByCountry = visible.has("priceByCountry") && otherLicensedCountries.length > 0;
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+    <Card>
       <div className="mb-3 flex items-center gap-3">
-        <ProductIcon productId={def.id} className="h-14 w-7 shrink-0 text-zinc-400 dark:text-zinc-600" />
+        <ProductIcon productId={def.id} className="h-14 w-7 shrink-0 text-teal-600/70 dark:text-teal-400/60" />
         <div>
           <h3 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">{def.name}</h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">{def.description}</p>
         </div>
       </div>
 
-      <div className="mb-4 rounded-lg bg-zinc-100 p-3 text-xs leading-relaxed dark:bg-zinc-900">
+      <div className="mb-4 rounded-lg bg-teal-50/70 p-3 text-xs leading-relaxed dark:bg-teal-950/20">
         <p className="text-zinc-600 dark:text-zinc-400">
           ~{formatNumber(potentialDemand)} units of demand at this price → est. {formatNumber(projectedUnitsSold)} sold,{" "}
           {formatCurrency(projectedRevenue)} revenue, {formatCurrency(projectedGrossProfit)} gross profit.
@@ -115,7 +117,7 @@ export function ProductDecisionPanel({
             <select
               value={value[f.key] as number}
               onChange={(e) => set(f.key, Number(e.target.value))}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              className={SELECT_CLASS}
             >
               {f.options.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -144,7 +146,7 @@ export function ProductDecisionPanel({
                       productionVolumeByFactory: { ...value.productionVolumeByFactory, [countryId]: Number(e.target.value) },
                     })
                   }
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                  className={SELECT_CLASS}
                 >
                   {productionOptions(state).map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -179,7 +181,7 @@ export function ProductDecisionPanel({
                     else next[countryId] = v;
                     onChange({ ...value, priceByCountry: next });
                   }}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                  className={SELECT_CLASS}
                 >
                   {priceByCountryOptions(def, value.price).map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -203,7 +205,7 @@ export function ProductDecisionPanel({
             <select
               value={value.openFactoryIn ?? ""}
               onChange={(e) => onChange({ ...value, openFactoryIn: (e.target.value || undefined) as ProductDecisionInput["openFactoryIn"] })}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              className={SELECT_CLASS}
             >
               {factoryOpenOptions(state, openedFactoryCountries).map((opt) => (
                 <option key={opt.value || "none"} value={opt.value}>
@@ -214,6 +216,6 @@ export function ProductDecisionPanel({
           </label>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

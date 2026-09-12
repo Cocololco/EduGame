@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { YearResult } from "@/types/game";
 import { formatCurrency, formatNumber, formatPct } from "@/lib/format";
 import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { ProductIcon } from "./ProductIcon";
 
 export function YearResultSummaryCard({
@@ -20,13 +22,13 @@ export function YearResultSummaryCard({
 }) {
   const { incomeStatement: is, ratios } = result;
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+    <Card>
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Year {result.year} results</h2>
         {financialsHref !== null && (
           <Link
             href={financialsHref ?? `/solo/play/${gameId}/financials?year=${result.year}`}
-            className="text-sm underline text-zinc-600 dark:text-zinc-400"
+            className="text-sm font-medium text-teal-700 underline decoration-teal-300 underline-offset-4 hover:text-teal-800 dark:text-teal-400 dark:decoration-teal-800 dark:hover:text-teal-300"
           >
             Full financials →
           </Link>
@@ -84,7 +86,7 @@ export function YearResultSummaryCard({
               <tr key={p.productId} className="border-b border-zinc-100 dark:border-zinc-900">
                 <td className="py-1.5 pr-4">
                   <span className="inline-flex items-center gap-2">
-                    <ProductIcon productId={p.productId} className="h-6 w-3 text-zinc-400 dark:text-zinc-600" />
+                    <ProductIcon productId={p.productId} className="h-6 w-3 text-teal-600/70 dark:text-teal-400/60" />
                     {PRODUCT_DEFINITIONS[p.productId].name}
                   </span>
                 </td>
@@ -99,12 +101,9 @@ export function YearResultSummaryCard({
         </table>
       </div>
 
-      <button
-        onClick={onContinue}
-        className="flex h-11 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200 sm:w-auto"
-      >
+      <Button onClick={onContinue} className="w-full sm:w-auto">
         {isLastYear ? "See final results" : `Continue to year ${result.year + 1}`}
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }

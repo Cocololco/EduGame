@@ -7,7 +7,7 @@ export function MultiplayerResultsTable({ players, myPlayerId }: { players: Play
     .sort((a, b) => (b.finalScore!.compositeScore ?? 0) - (a.finalScore!.compositeScore ?? 0));
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -22,7 +22,7 @@ export function MultiplayerResultsTable({ players, myPlayerId }: { players: Play
           {ranked.map((p, i) => (
             <tr
               key={p.id}
-              className={`border-b border-zinc-100 last:border-b-0 dark:border-zinc-900 ${p.id === myPlayerId ? "bg-zinc-50 dark:bg-zinc-900" : ""}`}
+              className={`border-b border-zinc-100 last:border-b-0 dark:border-zinc-900 ${p.id === myPlayerId ? "bg-teal-50/60 dark:bg-teal-950/20" : ""}`}
             >
               <td className="py-2 pl-4 pr-4">
                 <span

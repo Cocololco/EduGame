@@ -3,6 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getIdentity, setDisplayName } from "@/lib/identity";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { INPUT_CLASS } from "@/components/ui/field";
 
 export default function LoginClient() {
   const router = useRouter();
@@ -26,34 +29,32 @@ export default function LoginClient() {
 
   return (
     <div className="flex flex-1 justify-center bg-zinc-50 px-6 py-24 dark:bg-black">
-      <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Who&apos;s playing?</h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Just a name — no account, no password. This browser remembers you for solo and multiplayer games.
-          </p>
-        </div>
+      <Card className="h-fit w-full max-w-sm">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Who&apos;s playing?</h1>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              Just a name — no account, no password. This browser remembers you for solo and multiplayer games.
+            </p>
+          </div>
 
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-zinc-800 dark:text-zinc-200">Your name</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Coco"
-            autoFocus
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-          />
-        </label>
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">Your name</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Coco"
+              autoFocus
+              className={INPUT_CLASS}
+            />
+          </label>
 
-        <button
-          type="submit"
-          disabled={!name.trim()}
-          className="flex h-12 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-base font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-        >
-          Continue
-        </button>
-      </form>
+          <Button type="submit" disabled={!name.trim()} size="lg" className="w-full">
+            Continue
+          </Button>
+        </form>
+      </Card>
     </div>
   );
 }

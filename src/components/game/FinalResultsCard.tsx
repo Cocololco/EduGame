@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Game, ProductId } from "@/types/game";
 import { formatCurrency } from "@/lib/format";
 import { listLeaderboardEntries } from "@/lib/game/leaderboard";
 import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
+import { LinkButton } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { ProductIcon } from "./ProductIcon";
 
 export function FinalResultsCard({ game }: { game: Game }) {
@@ -40,7 +41,7 @@ export function FinalResultsCard({ game }: { game: Game }) {
   const bestProductId = [...productTotals.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+    <Card>
       <h2 className="mb-4 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
         Final results — {game.config.totalYears} years
       </h2>
@@ -84,7 +85,7 @@ export function FinalResultsCard({ game }: { game: Game }) {
             <p className="inline-flex items-center gap-2">
               Best product:
               <span className="inline-flex items-center gap-1.5 font-medium text-zinc-900 dark:text-zinc-100">
-                <ProductIcon productId={bestProductId} className="h-5 w-2.5 text-zinc-400 dark:text-zinc-600" />
+                <ProductIcon productId={bestProductId} className="h-5 w-2.5 text-teal-600/70 dark:text-teal-400/60" />
                 {PRODUCT_DEFINITIONS[bestProductId].name}
               </span>{" "}
               ({formatCurrency(productTotals.get(bestProductId)!)} total gross profit)
@@ -94,25 +95,16 @@ export function FinalResultsCard({ game }: { game: Game }) {
       )}
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <Link
-          href={`/solo/play/${game.config.id}/financials`}
-          className="flex h-11 w-full items-center justify-center rounded-full border border-zinc-300 px-6 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900 sm:w-auto"
-        >
+        <LinkButton href={`/solo/play/${game.config.id}/financials`} variant="secondary" className="w-full sm:w-auto">
           Full financials
-        </Link>
-        <Link
-          href="/leaderboard"
-          className="flex h-11 w-full items-center justify-center rounded-full border border-zinc-300 px-6 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900 sm:w-auto"
-        >
+        </LinkButton>
+        <LinkButton href="/leaderboard" variant="secondary" className="w-full sm:w-auto">
           Leaderboard
-        </Link>
-        <Link
-          href="/solo/new"
-          className="flex h-11 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200 sm:w-auto"
-        >
+        </LinkButton>
+        <LinkButton href="/solo/new" className="w-full sm:w-auto">
           Play again
-        </Link>
+        </LinkButton>
       </div>
-    </div>
+    </Card>
   );
 }

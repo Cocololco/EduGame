@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Card } from "@/components/ui/Card";
 
 export const metadata: Metadata = {
   title: "Rules — EduGame",
@@ -8,10 +9,10 @@ export const metadata: Metadata = {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-2">
+    <Card className="flex flex-col gap-2">
       <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">{title}</h2>
       <div className="flex flex-col gap-2 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{children}</div>
-    </section>
+    </Card>
   );
 }
 
@@ -55,13 +56,13 @@ function Table({ headers, rows }: { headers: string[]; rows: (string | number)[]
 export default function RulesPage() {
   return (
     <div className="flex flex-1 justify-center bg-zinc-50 px-6 py-12 dark:bg-black">
-      <div className="flex w-full max-w-2xl flex-col gap-8">
+      <div className="flex w-full max-w-2xl flex-col gap-6">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">How the simulation works</h1>
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             The numbers behind the game, in plain language. Balanced by calculation and one full playtest, not
             extensively played yet.{" "}
-            <Link href="/solo/new" className="underline">
+            <Link href="/solo/new" className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">
               Back to game setup
             </Link>
             .
@@ -322,7 +323,7 @@ export default function RulesPage() {
           <p>
             <code className="rounded bg-black/5 px-1 dark:bg-white/10">score = cumulativeNetProfit×0.001 + finalValuation×0.001</code>{" "}
             — every $1,000 of profit or final equity is worth 1 point. Completed games are recorded to the{" "}
-            <Link href="/leaderboard" className="underline">
+            <Link href="/leaderboard" className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">
               leaderboard
             </Link>
             .

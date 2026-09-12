@@ -11,6 +11,8 @@ import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
 import { ProductIcon } from "@/components/game/ProductIcon";
 import { ProfitTrendChart } from "@/components/game/ProfitTrendChart";
 import { buildFinancialsCsv, downloadTextFile } from "@/lib/game/exportCsv";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 
 interface CountryTotals {
   countryId: CountryId;
@@ -104,7 +106,7 @@ export default function FinancialsClient() {
     return (
       <CenteredMessage>
         Couldn&apos;t find that game in this browser.{" "}
-        <Link href="/solo/new" className="underline">
+        <Link href="/solo/new" className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">
           Start a new one
         </Link>
         .
@@ -119,7 +121,7 @@ export default function FinancialsClient() {
     return (
       <CenteredMessage>
         No years simulated yet.{" "}
-        <Link href={`/solo/play/${game.config.id}`} className="underline">
+        <Link href={`/solo/play/${game.config.id}`} className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">
           Go make your first decision
         </Link>
         .
@@ -137,10 +139,13 @@ export default function FinancialsClient() {
     <div className="flex flex-1 justify-center bg-zinc-50 px-6 py-12 dark:bg-black">
       <div className="flex w-full max-w-4xl flex-col gap-6">
         <div className="flex items-center justify-between">
-          <Link href={`/solo/play/${game.config.id}`} className="text-sm text-zinc-600 underline dark:text-zinc-400">
+          <Link href={`/solo/play/${game.config.id}`} className="text-sm text-zinc-600 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-900 dark:text-zinc-400 dark:decoration-zinc-700 dark:hover:text-zinc-100">
             ← Back to decisions
           </Link>
-          <Link href="/leaderboard" className="text-sm text-zinc-600 underline dark:text-zinc-400">
+          <Link
+            href="/leaderboard"
+            className="text-sm font-medium text-teal-700 underline decoration-teal-300 underline-offset-4 hover:text-teal-800 dark:text-teal-400 dark:decoration-teal-800 dark:hover:text-teal-300"
+          >
             Leaderboard →
           </Link>
         </div>
@@ -150,26 +155,27 @@ export default function FinancialsClient() {
             <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">
               {player.companyName || player.displayName} — Financials
             </h1>
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() =>
                 downloadTextFile(
                   `${(player.companyName || player.displayName).replace(/\s+/g, "_")}_financials.csv`,
                   buildFinancialsCsv(player),
                 )
               }
-              className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             >
               Export CSV
-            </button>
+            </Button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {results.map((r) => (
               <button
                 key={r.year}
                 onClick={() => setSelectedYear(r.year)}
-                className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+                className={`rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
                   r.year === year
-                    ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-50 dark:bg-zinc-50 dark:text-zinc-950"
+                    ? "border-teal-600 bg-teal-600 text-white dark:border-teal-500 dark:bg-teal-500 dark:text-zinc-950"
                     : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
                 }`}
               >
@@ -182,7 +188,7 @@ export default function FinancialsClient() {
         {results.length > 1 && <ProfitTrendChart results={results} />}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <Card>
             <h2 className="mb-3 text-base font-semibold text-zinc-950 dark:text-zinc-50">
               Income statement — Year {year}
             </h2>
@@ -198,9 +204,9 @@ export default function FinancialsClient() {
             <StatementRow label="Operating profit" value={is.operatingProfit} bold />
             <StatementRow label="Interest expense" value={-is.interestExpense} indent />
             <StatementRow label="Net profit" value={is.netProfit} bold />
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <Card>
             <h2 className="mb-3 text-base font-semibold text-zinc-950 dark:text-zinc-50">
               Balance sheet — end of Year {year}
             </h2>
@@ -234,10 +240,10 @@ export default function FinancialsClient() {
                 <dd className="font-medium text-zinc-900 dark:text-zinc-100">{ratios.debtToEquity.toFixed(2)}</dd>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+        <Card>
           <h2 className="mb-3 text-base font-semibold text-zinc-950 dark:text-zinc-50">By product — Year {year}</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -256,10 +262,13 @@ export default function FinancialsClient() {
               </thead>
               <tbody>
                 {is.byProduct.map((p) => (
-                  <tr key={p.productId} className="border-b border-zinc-100 dark:border-zinc-900">
+                  <tr
+                    key={p.productId}
+                    className="border-b border-zinc-100 transition-colors last:border-b-0 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900/50"
+                  >
                     <td className="py-1.5 pr-4">
                       <span className="inline-flex items-center gap-2">
-                        <ProductIcon productId={p.productId} className="h-6 w-3 text-zinc-400 dark:text-zinc-600" />
+                        <ProductIcon productId={p.productId} className="h-6 w-3 text-teal-600/70 dark:text-teal-400/60" />
                         {PRODUCT_DEFINITIONS[p.productId].name}
                       </span>
                     </td>
@@ -276,10 +285,10 @@ export default function FinancialsClient() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
 
         {countryRows.length > 1 && (
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <Card>
             <h2 className="mb-3 text-base font-semibold text-zinc-950 dark:text-zinc-50">By country — Year {year}</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -295,8 +304,11 @@ export default function FinancialsClient() {
                 </thead>
                 <tbody>
                   {countryRows.map((r) => (
-                    <tr key={r.countryId} className="border-b border-zinc-100 dark:border-zinc-900">
-                      <td className="py-1.5 pr-4 text-zinc-800 dark:text-zinc-200">{getCountryDefinition(r.countryId).name}</td>
+                    <tr
+                      key={r.countryId}
+                      className="border-b border-zinc-100 transition-colors last:border-b-0 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900/50"
+                    >
+                      <td className="py-1.5 pr-4 font-medium text-zinc-800 dark:text-zinc-200">{getCountryDefinition(r.countryId).name}</td>
                       <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatNumber(Math.round(r.unitsSold))}</td>
                       <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatCurrency(r.revenue)}</td>
                       <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatCurrency(r.cogs)}</td>
@@ -305,7 +317,7 @@ export default function FinancialsClient() {
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-900">
                             <div
-                              className="h-full rounded-full bg-zinc-400 dark:bg-zinc-600"
+                              className="h-full rounded-full bg-teal-500 dark:bg-teal-400"
                               style={{ width: `${Math.max(2, (r.revenue / maxCountryRevenue) * 100)}%` }}
                             />
                           </div>
@@ -323,11 +335,11 @@ export default function FinancialsClient() {
               Summed across all three products. Only appears once you&apos;re licensed in more than one country —
               see the company status page&apos;s international table for per-product demand.
             </p>
-          </div>
+          </Card>
         )}
 
         {result.eventsApplied.length > 0 && (
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <Card>
             <h2 className="mb-3 text-base font-semibold text-zinc-950 dark:text-zinc-50">Events this year</h2>
             <div className="flex flex-col gap-2">
               {result.eventsApplied.map((e) => (
@@ -339,7 +351,7 @@ export default function FinancialsClient() {
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

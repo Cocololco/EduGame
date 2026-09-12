@@ -4,7 +4,16 @@ import { formatCurrency, formatNumber } from "@/lib/format";
 import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
 import { effectiveDemandMultiplier, getCountryDefinition } from "@/lib/simulation/countries";
 import { effectiveCapacity } from "@/lib/game/decisionOptions";
+import { Card } from "@/components/ui/Card";
 import { ProductIcon } from "./ProductIcon";
+
+function Check({ on }: { on: boolean }) {
+  return on ? (
+    <span className="font-semibold text-teal-600 dark:text-teal-400">✓</span>
+  ) : (
+    <span className="text-zinc-300 dark:text-zinc-700">—</span>
+  );
+}
 
 export function CompanyStatusPanel({
   state,
@@ -27,7 +36,7 @@ export function CompanyStatusPanel({
   ];
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+    <Card>
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">{companyName || "Company status"}</h2>
         <span className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -63,10 +72,10 @@ export function CompanyStatusPanel({
               const def = PRODUCT_DEFINITIONS[id];
               const eff = Math.round(effectiveCapacity(p));
               return (
-                <tr key={id} className="border-b border-zinc-100 dark:border-zinc-900">
+                <tr key={id} className="border-b border-zinc-100 transition-colors last:border-b-0 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900/50">
                   <td className="py-1.5 pr-4">
                     <span className="inline-flex items-center gap-2">
-                      <ProductIcon productId={id} className="h-6 w-3 text-zinc-400 dark:text-zinc-600" />
+                      <ProductIcon productId={id} className="h-6 w-3 text-teal-600/70 dark:text-teal-400/60" />
                       {def.name}
                     </span>
                   </td>
@@ -115,10 +124,14 @@ export function CompanyStatusPanel({
               const hasFactory = state.openedFactoryCountries.includes(id);
               const researched = state.researchedCountries.includes(id);
               return (
-                <tr key={id} className="border-b border-zinc-100 dark:border-zinc-900">
-                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{c.name}</td>
-                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{licensed ? "✓" : "—"}</td>
-                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{hasFactory ? "✓" : "—"}</td>
+                <tr key={id} className="border-b border-zinc-100 transition-colors last:border-b-0 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900/50">
+                  <td className="py-1.5 pr-4 font-medium text-zinc-700 dark:text-zinc-300">{c.name}</td>
+                  <td className="py-1.5 pr-4">
+                    <Check on={licensed} />
+                  </td>
+                  <td className="py-1.5 pr-4">
+                    <Check on={hasFactory} />
+                  </td>
                   <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">
                     {researched ? (
                       // As of NEXT year (when a decision made now would take
@@ -142,6 +155,6 @@ export function CompanyStatusPanel({
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   );
 }

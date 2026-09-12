@@ -1,5 +1,6 @@
 import type { YearResult } from "@/types/game";
 import { formatCurrency } from "@/lib/format";
+import { Card } from "@/components/ui/Card";
 
 const WIDTH = 640;
 const HEIGHT = 180;
@@ -33,12 +34,12 @@ export function ProfitTrendChart({ results }: { results: YearResult[] }) {
   const zeroY = y(0);
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+    <Card>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">Revenue &amp; net profit by year</h2>
         <div className="flex gap-4 text-xs">
           <span className="inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
-            <span className="h-2 w-2 rounded-full bg-zinc-400 dark:bg-zinc-500" /> Revenue
+            <span className="h-2 w-2 rounded-full bg-sky-500" /> Revenue
           </span>
           <span className="inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400">
             <span className="h-2 w-2 rounded-full bg-emerald-500" /> Net profit
@@ -56,11 +57,11 @@ export function ProfitTrendChart({ results }: { results: YearResult[] }) {
           strokeDasharray="4 4"
           className="text-zinc-900 dark:text-zinc-100"
         />
-        <path d={pathFor(revenues)} fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-400 dark:text-zinc-500" />
+        <path d={pathFor(revenues)} fill="none" stroke="currentColor" strokeWidth="2" className="text-sky-500 dark:text-sky-400" />
         <path d={pathFor(profits)} fill="none" stroke="#10b981" strokeWidth="2.5" />
         {years.map((yr, i) => (
           <g key={yr}>
-            <circle cx={x(i)} cy={y(revenues[i])} r="3" className="fill-zinc-400 dark:fill-zinc-500" />
+            <circle cx={x(i)} cy={y(revenues[i])} r="3" className="fill-sky-500 dark:fill-sky-400" />
             <circle cx={x(i)} cy={y(profits[i])} r="3.5" fill="#10b981" />
             <text
               x={x(i)}
@@ -77,6 +78,6 @@ export function ProfitTrendChart({ results }: { results: YearResult[] }) {
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
         Latest year: {formatCurrency(revenues[revenues.length - 1])} revenue, {formatCurrency(profits[profits.length - 1])} net profit.
       </p>
-    </div>
+    </Card>
   );
 }

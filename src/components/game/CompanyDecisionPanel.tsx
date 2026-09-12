@@ -12,6 +12,8 @@ import {
   rndOptions,
 } from "@/lib/game/decisionOptions";
 import { COMPANY_FIELDS_BY_DIFFICULTY } from "@/lib/game/difficulty";
+import { Card } from "@/components/ui/Card";
+import { SELECT_CLASS } from "@/components/ui/field";
 
 interface Props {
   state: CompanyYearState;
@@ -38,7 +40,7 @@ export function CompanyDecisionPanel({ state, value, onChange, difficulty }: Pro
   const showResearch = visible.has("researchCountries");
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+    <Card>
       <h3 className="mb-1 text-base font-semibold text-zinc-950 dark:text-zinc-50">Company</h3>
       <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400">
         Shared across all three product lines — brand awareness, R&amp;D, and financing aren&apos;t per-product.
@@ -50,7 +52,7 @@ export function CompanyDecisionPanel({ state, value, onChange, difficulty }: Pro
             <select
               value={value[f.key]}
               onChange={(e) => set(f.key, Number(e.target.value))}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              className={SELECT_CLASS}
             >
               {f.options.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -67,7 +69,7 @@ export function CompanyDecisionPanel({ state, value, onChange, difficulty }: Pro
             <select
               value={value.licenseCountry ?? ""}
               onChange={(e) => onChange({ ...value, licenseCountry: (e.target.value || undefined) as CompanyDecision["licenseCountry"] })}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              className={SELECT_CLASS}
             >
               {licenseCountryOptions(state).map((opt) => (
                 <option key={opt.value || "none"} value={opt.value}>
@@ -89,7 +91,7 @@ export function CompanyDecisionPanel({ state, value, onChange, difficulty }: Pro
                   <label key={opt.countryId} className="flex items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
                     <input
                       type="checkbox"
-                      className="mt-0.5"
+                      className="mt-0.5 accent-teal-600"
                       checked={(value.researchCountries ?? []).includes(opt.countryId)}
                       onChange={(e) => {
                         const current = value.researchCountries ?? [];
@@ -107,6 +109,6 @@ export function CompanyDecisionPanel({ state, value, onChange, difficulty }: Pro
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

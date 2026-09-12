@@ -20,6 +20,9 @@ import { ProductDecisionPanel } from "@/components/game/ProductDecisionPanel";
 import { CompanyDecisionPanel } from "@/components/game/CompanyDecisionPanel";
 import { YearResultSummaryCard } from "@/components/game/YearResultSummaryCard";
 import { MultiplayerResultsTable } from "@/components/game/MultiplayerResultsTable";
+import { Button, LinkButton } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { INPUT_CLASS } from "@/components/ui/field";
 
 const POLL_INTERVAL_MS = 3500;
 
@@ -95,7 +98,7 @@ export default function MultiplayerRoomClient() {
   if (identity === null) {
     return (
       <CenteredMessage>
-        <Link href={`/login?next=/multiplayer/${params.id}`} className="underline">
+        <Link href={`/login?next=/multiplayer/${params.id}`} className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">
           Sign in
         </Link>{" "}
         first — just a name, no password.
@@ -162,7 +165,7 @@ export default function MultiplayerRoomClient() {
         <div className="flex w-full max-w-lg flex-col gap-6">
           <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Lobby</h1>
 
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <Card>
             <p className="mb-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">Invite link</p>
             <div className="flex items-center gap-2">
               <input
@@ -171,20 +174,17 @@ export default function MultiplayerRoomClient() {
                 onFocus={(e) => e.currentTarget.select()}
                 className="flex-1 rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
               />
-              <button
-                onClick={() => navigator.clipboard?.writeText(inviteUrl)}
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-              >
+              <Button variant="secondary" size="sm" onClick={() => navigator.clipboard?.writeText(inviteUrl)}>
                 Copy
-              </button>
+              </Button>
             </div>
             <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
               {humanCount}/{humanSeats} human seat{humanSeats === 1 ? "" : "s"} filled · {game.config.numBots} bot
               {game.config.numBots === 1 ? "" : "s"} join when the game starts
             </p>
-          </div>
+          </Card>
 
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <Card>
             <p className="mb-3 text-sm font-medium text-zinc-800 dark:text-zinc-200">Players</p>
             <ul className="flex flex-col gap-2 text-sm">
               {game.players.map((p) => (
@@ -194,45 +194,29 @@ export default function MultiplayerRoomClient() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
 
           {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
 
           {me ? (
-            <button
-              onClick={handleStart}
-              disabled={actionBusy}
-              className="flex h-12 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-base font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-            >
+            <Button onClick={handleStart} disabled={actionBusy} size="lg" className="w-full">
               {actionBusy ? "Starting…" : "Start game"}
-            </button>
+            </Button>
           ) : humanCount >= humanSeats ? (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">This game&apos;s human seats are full.</p>
           ) : (
             <form onSubmit={handleJoin} className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-sm">
                 <span className="font-medium text-zinc-800 dark:text-zinc-200">Your name</span>
-                <input
-                  value={joinName}
-                  onChange={(e) => setJoinName(e.target.value)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-                />
+                <input value={joinName} onChange={(e) => setJoinName(e.target.value)} className={INPUT_CLASS} />
               </label>
               <label className="flex flex-col gap-1.5 text-sm">
                 <span className="font-medium text-zinc-800 dark:text-zinc-200">Company name (optional)</span>
-                <input
-                  value={joinCompany}
-                  onChange={(e) => setJoinCompany(e.target.value)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-                />
+                <input value={joinCompany} onChange={(e) => setJoinCompany(e.target.value)} className={INPUT_CLASS} />
               </label>
-              <button
-                type="submit"
-                disabled={actionBusy}
-                className="flex h-12 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-base font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200"
-              >
+              <Button type="submit" disabled={actionBusy} size="lg" className="w-full">
                 {actionBusy ? "Joining…" : "Join game"}
-              </button>
+              </Button>
             </form>
           )}
         </div>
@@ -253,12 +237,9 @@ export default function MultiplayerRoomClient() {
         <div className="flex w-full max-w-2xl flex-col gap-6">
           <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Final results — {game.config.totalYears} years</h1>
           <MultiplayerResultsTable players={game.players} myPlayerId={me.id} />
-          <Link
-            href="/multiplayer/new"
-            className="flex h-11 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200 sm:w-auto"
-          >
+          <LinkButton href="/multiplayer/new" className="w-full sm:w-auto">
             New game
-          </Link>
+          </LinkButton>
         </div>
       </div>
     );
@@ -283,19 +264,19 @@ export default function MultiplayerRoomClient() {
         )}
 
         {!pendingResult && me.pendingDecision && (
-          <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <Card>
             <p className="text-sm text-zinc-700 dark:text-zinc-300">
               You&apos;ve submitted year {game.currentYear + 1}. Waiting on:{" "}
               {waitingOnHumans.length === 0 ? "everyone — resolving…" : waitingOnHumans.map((p) => p.displayName).join(", ")}
             </p>
-          </div>
+          </Card>
         )}
 
         {!pendingResult && !me.pendingDecision && form && (
           <>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Each option shows its effect.{" "}
-              <Link href="/rules" className="underline" target="_blank">
+              <Link href="/rules" className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300" target="_blank">
                 See the rules
               </Link>
               .
@@ -322,13 +303,9 @@ export default function MultiplayerRoomClient() {
 
             {actionError && <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
 
-            <button
-              onClick={handleSubmitDecision}
-              disabled={actionBusy}
-              className="flex h-12 w-full items-center justify-center rounded-full bg-zinc-950 px-6 text-base font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-zinc-200 sm:w-auto"
-            >
+            <Button onClick={handleSubmitDecision} disabled={actionBusy} size="lg" className="w-full sm:w-auto">
               {actionBusy ? "Submitting…" : `Submit year ${game.currentYear + 1}`}
-            </button>
+            </Button>
           </>
         )}
       </div>

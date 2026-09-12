@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import type { LeaderboardEntry } from "@/types/game";
 import { clearLeaderboard, listLeaderboardEntries } from "@/lib/game/leaderboard";
 import { formatCurrency } from "@/lib/format";
+import { LinkButton } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 
 type SortKey = "compositeScore" | "cumulativeNetProfit" | "finalValuation" | "completedAt";
 
@@ -42,9 +44,9 @@ export default function LeaderboardClient() {
       <div className="flex w-full max-w-3xl flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Leaderboard</h1>
-          <Link href="/solo/new" className="text-sm underline text-zinc-600 dark:text-zinc-400">
+          <LinkButton href="/solo/new" size="sm">
             New game
-          </Link>
+          </LinkButton>
         </div>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
           Every completed game in this browser, ranked. No accounts yet — this doesn&apos;t sync anywhere else.
@@ -56,9 +58,9 @@ export default function LeaderboardClient() {
             <button
               key={key}
               onClick={() => setSortKey(key)}
-              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 sortKey === key
-                  ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-50 dark:bg-zinc-50 dark:text-zinc-950"
+                  ? "border-teal-600 bg-teal-600 text-white dark:border-teal-500 dark:bg-teal-500 dark:text-zinc-950"
                   : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
               }`}
             >
@@ -68,17 +70,17 @@ export default function LeaderboardClient() {
         </div>
 
         {entries !== null && entries.length === 0 && (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <Card className="text-sm text-zinc-500 dark:text-zinc-400">
             No completed games yet.{" "}
-            <Link href="/solo/new" className="underline">
+            <Link href="/solo/new" className="text-teal-700 underline hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">
               Play one
             </Link>
             .
-          </p>
+          </Card>
         )}
 
         {sorted.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -95,7 +97,10 @@ export default function LeaderboardClient() {
               </thead>
               <tbody>
                 {sorted.map((e, i) => (
-                  <tr key={e.id} className="border-b border-zinc-100 last:border-b-0 dark:border-zinc-900">
+                  <tr
+                    key={e.id}
+                    className="border-b border-zinc-100 transition-colors last:border-b-0 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900/50"
+                  >
                     <td className="py-2 pl-4 pr-4">
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
