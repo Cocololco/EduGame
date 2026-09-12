@@ -8,6 +8,7 @@ The app runs in Docker on an existing personal VPS, behind Apache (the VPS's exi
 - **Container:** `edugame` (image `edugame:latest`), listens on `127.0.0.1:3001` on the host, `--restart unless-stopped`
 - **Reverse proxy:** `/etc/apache2/sites-available/game.corentinhillion.com.conf` (+ `-le-ssl.conf` created by certbot), `ProxyPass`/`ProxyPassReverse` to `http://127.0.0.1:3001/`
 - **Repo on VPS:** `~/edugame` (plain `git clone` of the GitHub repo — it's public, no deploy key needed to pull)
+- **Persistent data volume:** `/home/ubuntu/edugame-data` on the host, mounted at `/app/data` in the container — holds multiplayer game state (see [DATA_MODEL.md](DATA_MODEL.md) and `src/lib/server/gameStore.ts`). **Every `docker run` must include `-v /home/ubuntu/edugame-data:/app/data`** — omitting it doesn't error, it just silently starts the app with an empty/ephemeral data dir, and any redeploy after that would look like it wiped every multiplayer game. Owned by uid 1001 on the host (matching the container's non-root `nextjs` user) — if the mount ever needs recreating: `mkdir -p ~/edugame-data/multiplayer-games && sudo chown -R 1001:1001 ~/edugame-data`.
 
 ## How it's built
 
@@ -22,8 +23,13 @@ cd ~/edugame
 git pull
 sudo docker build -t edugame:latest .
 sudo docker rm -f edugame
-sudo docker run -d --name edugame --restart unless-stopped -p 127.0.0.1:3001:3000 edugame:latest
+sudo docker run -d --name edugame --restart unless-stopped \
+  -p 127.0.0.1:3001:3000 \
+  -v /home/ubuntu/edugame-data:/app/data \
+  edugame:latest
 ```
+
+**Don't drop the `-v` flag** — see "Persistent data volume" above.
 
 (Assumes port 3001 stays free/reserved for this app — see "Ports already in use" below before picking a different one.)
 
@@ -38,5 +44,6 @@ nginx is installed on this VPS but not running (`systemctl status nginx` shows `
 ## Open questions / not yet set up
 
 - No CI/CD — deploys are manual, run by hand per the steps above.
-- No environment-variable/secrets management yet (nothing needed until the backend/DB phase).
+- No backup of `~/edugame-data` — it's just files on the host disk, not snapshotted anywhere. Fine for a personal game, worth fixing before this holds anything anyone would be upset to lose.
 - No health checks, log shipping, or monitoring beyond `docker ps`/`docker logs edugame`.
+- `EDUGAME_DATA_DIR` env var overrides the data directory (defaults to `./data` relative to the app's cwd, i.e. `/app/data` in the container) — not currently set on the VPS since the volume mount already lands in the right place; only needed if that ever changes.
