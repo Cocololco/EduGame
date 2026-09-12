@@ -1,12 +1,13 @@
 import type { Game } from "@/types/game";
-import { PRODUCT_IDS } from "@/types/game";
+import { isCompatibleGame } from "./gameSchema";
 
 /**
- * Client-side only game persistence, via localStorage. There's no backend
- * yet (see docs/GAME_DESIGN.md) — games live in the browser that created
- * them and aren't shared/synced anywhere. Safe to call from server code
- * (all functions no-op/return null there); real usage is from client
- * components only.
+ * Client-side only game persistence, via localStorage. Solo games live only
+ * in the browser that created them and aren't shared/synced anywhere (see
+ * docs/GAME_DESIGN.md — multiplayer's persistence is server-side instead,
+ * src/lib/server/gameStore.ts). Safe to call from server code (all
+ * functions no-op/return null there); real usage is from client components
+ * only.
  */
 
 const GAME_PREFIX = "edugame:game:";
@@ -14,18 +15,6 @@ const GAME_IDS_KEY = "edugame:gameIds";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
-}
-
-/**
- * Structural check that saved JSON actually matches the current multi-product
- * Game shape — guards against stale data from an earlier, incompatible
- * schema version (e.g. the single-product model this app used before).
- * There's no version tag on Game; this checks the one field that changed.
- */
-function isCompatibleGame(value: unknown): value is Game {
-  const g = value as Game | null | undefined;
-  const products = g?.players?.[0]?.companyStates?.[0]?.products;
-  return !!products && PRODUCT_IDS.every((id) => id in products);
 }
 
 export function saveGame(game: Game): void {

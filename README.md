@@ -6,23 +6,23 @@ A business-management simulation game — run a surfboard company as owner/manag
 
 ## Status
 
-🚧 Solo mode is playable at [game.corentinhillion.com](https://game.corentinhillion.com) — run three product lines (shortboard, longboard, luxury fishboard) across a configurable number of years, with a full financial-statements page, a local leaderboard, and difficulty levels. No accounts yet: games/leaderboard live in your browser's local storage only. Multiplayer has no UI yet. Numbers are calculated to make a reasonably-played year profitable, but this hasn't had extensive real playtesting.
+🚧 Both solo and multiplayer are playable at [game.corentinhillion.com](https://game.corentinhillion.com) — run three product lines (shortboard, longboard, luxury fishboard) across a configurable number of years, with a full financial-statements page (solo), a local leaderboard, difficulty levels, and now real multiplayer: sign in with just a name, create a game, send the link, play with bots filling any open seats. Numbers are calculated to make a reasonably-played year profitable, verified by a full playthrough of each mode, but this hasn't had extensive real playtesting yet. Selling into multiple countries (factories/transport/licenses/market research) is designed but not built — see [docs/REGIONS_DESIGN.md](docs/REGIONS_DESIGN.md).
 
 ## Concept
 
-Run three surfboard product lines with independent price/production/staffing/quality/training decisions, plus company-wide marketing, R&D, and financing. Each round is one business year: submit decisions, the year simulates, and full financials (P&L + balance sheet, navigable across past years) come back.
+Run three surfboard product lines with independent price/production/staffing/quality/training decisions, plus company-wide marketing, R&D, and financing. Each round is one business year: submit decisions, the year simulates, and results come back — solo gets a full P&L + balance sheet navigable across past years; multiplayer gets a standings table once everyone's played the same year.
 
 Two modes:
 
-- **Solo** — play against the market itself over a configurable number of years, then get a final score on the [leaderboard](src/app/leaderboard/page.tsx).
-- **Multiplayer (2–4 players)** — play with friends/family sharing one market per product, submit decisions each year, and the round resolves once everyone's in. *(Engine supports this; no UI yet.)*
+- **Solo** — play against the market itself over a configurable number of years, saved in your browser only, then get a final score on the [leaderboard](src/app/leaderboard/page.tsx).
+- **Multiplayer (2–8 players + bots)** — sign in with a name (no password), create a game, share its link. Each product's demand is split by category leadership each year (cheapest price / best quality / best brand / best innovation each win their whole share, not a smooth blend) — see [docs/RULES.md](docs/RULES.md). Any open bot seats get filled with simple heuristic opponents.
 
 Full design details live in [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md); the exact simulation math is in [docs/RULES.md](docs/RULES.md) (also available in-app at `/rules`).
 
 ## Tech Stack
 
 - **Frontend:** [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS
-- **Backend:** Not yet built — planned for the future to support user accounts and persistent progress (auth + database)
+- **Backend:** minimal, multiplayer-only — file-based server-side game storage (`src/lib/server/gameStore.ts`) and a name-only per-browser identity (`src/lib/identity.ts`, no password/real accounts — see its docstring). Solo games never touch the server.
 - **Package manager:** npm
 
 ## Getting Started

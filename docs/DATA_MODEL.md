@@ -42,10 +42,17 @@ Keeping these three separate (rather than one mutable "company" blob) means past
 
 ## Solo vs. multiplayer
 
-The same types cover both:
+The same types cover both, but they live in different places:
 
-- **Solo**: one `Player`, `Game.market` stays empty, `ProductYearResult.marketSharePct` is left `undefined` (share of what market? — there's no competitor).
-- **Multiplayer**: 2-4 `Player`s, `Game.market` gets one `MarketYearState` per year capturing an aggregate demand/price summary (using the shortboard line as the representative figure), and each `ProductYearResult.marketSharePct` is populated per player per product per year — demand is split per-product by relative attractiveness, not shared as one company-wide pool.
+- **Solo**: one `Player`, `Game.market` stays empty, `ProductYearResult.marketSharePct` is left `undefined` (share of what market? — there's no competitor). Persisted client-side only, in `localStorage` (`src/lib/game/storage.ts`) — a solo game never leaves the browser that created it.
+- **Multiplayer**: 2-8 `Player`s (humans + bots), `Game.market` gets one `MarketYearState` per year capturing an aggregate demand/price summary (using the shortboard line as the representative figure), and each `ProductYearResult.marketSharePct` is populated per player per product per year — demand is split per-product by **category leadership** (cheapest price / highest quality / highest brand / highest innovation each win their whole weighted share — see [`allocateDemandShares`](../src/lib/simulation/simulateYear.ts) and RULES.md), not a smooth proportional blend. Persisted **server-side**, one JSON file per game (`src/lib/server/gameStore.ts`) — the only server-held state in this codebase, since two different browsers need to see the same game.
+
+Two `Player` fields exist only for multiplayer:
+
+- `isBot` / `botPersonality`: bots are regular `Player` entries (added when the host starts the game, via [`src/lib/game/multiplayerEngine.ts`](../src/lib/game/multiplayerEngine.ts)'s `startMultiplayerGame`), decided each year by [`src/lib/game/botAi.ts`](../src/lib/game/botAi.ts) rather than a human submitting through the UI.
+- `pendingDecision`: a player's submitted-but-not-yet-resolved decision for the *current* year (shape: `YearDecisionInput`, the same "draft" type solo's decision form already used). Once every player has one set, the engine builds each into a real `YearDecision`, runs `simulateMultiplayerYear`, appends the results to everyone via `applyYearResultToPlayer` (shared with solo — see [`yearResolution.ts`](../src/lib/game/yearResolution.ts)), and clears `pendingDecision` — except bots get a fresh one seeded immediately for the next year, so they're never the reason a year doesn't resolve.
+
+`GameConfig.numBots` is fixed at game creation; human seats = `maxPlayers - numBots`. `GameStatus.setup` is the lobby — humans join via the game's own URL as the invite link, until the host starts it (which is when bots actually get added, not at creation).
 
 ## Difficulty levels
 
@@ -67,8 +74,9 @@ The same types cover both:
 
 Carried over from GAME_DESIGN.md, plus data-model-specific ones:
 
+- **Regions** (countries/factories/transport/licenses) — fully specified in [REGIONS_DESIGN.md](REGIONS_DESIGN.md), not built; would touch `ProductLineState`, decisions, and demand allocation all at once
 - Exact `roiPct` base (equity vs. total assets) and the composite score's actual weight values
 - Whether `CompanyYearState`/`YearResult` need per-year `id`s once this is persisted in a real database (this model assumes array-order-by-year is enough for now)
-- Multiplayer reconnect/partial-submission handling — not represented yet (e.g. no "pending decision draft" type)
-- Any auth/account fields beyond a bare `userId` string (deferred until the backend is built)
-- No schema version tag on `Game` — `src/lib/game/storage.ts` guards against an incompatible shape structurally (checking that `products` exists on the first company state) rather than via an explicit version field; worth adding a real version field before the shape changes again
+- Multiplayer disconnect/never-comes-back handling — a game just waits forever on a missing `pendingDecision`, no timeout or player-removal path
+- Any auth/account fields beyond a bare `userId` string (deferred — see `src/lib/identity.ts`'s docstring for the current tradeoff)
+- No schema version tag on `Game` — both persistence layers (`src/lib/game/storage.ts` for solo, `src/lib/server/gameStore.ts` for multiplayer) share a structural compatibility check (`src/lib/game/gameSchema.ts`, checking that `products` exists on the first company state) rather than an explicit version field; that check would need updating (or a real version field added) before the shape changes again

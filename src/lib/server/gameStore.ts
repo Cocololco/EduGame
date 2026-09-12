@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Game } from "@/types/game";
+import { isCompatibleGame } from "@/lib/game/gameSchema";
 
 /**
  * Server-only, file-based persistence for multiplayer games — one JSON
@@ -43,7 +44,8 @@ export function readMultiplayerGame(id: string): Game | null {
   const file = filePathFor(id);
   if (!fs.existsSync(file)) return null;
   try {
-    return JSON.parse(fs.readFileSync(file, "utf-8")) as Game;
+    const parsed: unknown = JSON.parse(fs.readFileSync(file, "utf-8"));
+    return isCompatibleGame(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -61,10 +63,10 @@ export function listMultiplayerGamesForUser(userId: string): Game[] {
   const games: Game[] = [];
   for (const file of files) {
     try {
-      const game = JSON.parse(fs.readFileSync(path.join(GAMES_DIR, file), "utf-8")) as Game;
-      if (game.players.some((p) => p.userId === userId)) games.push(game);
+      const parsed: unknown = JSON.parse(fs.readFileSync(path.join(GAMES_DIR, file), "utf-8"));
+      if (isCompatibleGame(parsed) && parsed.players.some((p) => p.userId === userId)) games.push(parsed);
     } catch {
-      // Skip unreadable/corrupt files rather than failing the whole list.
+      // Skip unreadable/corrupt/incompatible files rather than failing the whole list.
     }
   }
   return games.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

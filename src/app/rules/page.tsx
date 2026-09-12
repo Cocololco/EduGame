@@ -215,6 +215,41 @@ export default function RulesPage() {
           />
         </Section>
 
+        <Section title="Multiplayer">
+          <p>
+            Each product&apos;s demand pool is split by <strong>category leadership, not smoothed proportionally</strong>:
+            cheapest price, highest quality, highest brand, and highest innovation each win their whole weighted
+            share outright (ties split evenly) — not a blend across everyone.
+          </p>
+          <Table
+            headers={["Product", "Price", "Quality", "Brand", "Innovation"]}
+            rows={[
+              ["Shortboard", 60, 15, 15, 10],
+              ["Longboard", 35, 30, 25, 10],
+              ["Fishboard", 10, 50, 30, 10],
+            ]}
+          />
+          <p>
+            So undercutting on shortboard price alone nets 60% of its whole pool regardless of quality/brand/
+            innovation — but on fishboard you need to win quality+brand+innovation (90% combined) since price barely
+            matters there. Winning nothing gets you 0% of that product&apos;s demand that year.
+          </p>
+          <p>
+            Total demand pool per product = baseline × number of players. <strong>Bots</strong> fill reserved seats
+            with one of three fixed personalities (aggressive/premium/balanced) that don&apos;t adapt to rivals —
+            good enough to fill a table, not a serious opponent. A year resolves once every human has submitted
+            (bots are pre-seeded the moment it&apos;s their turn).
+          </p>
+          <Callout>
+            Sign-in is a display name only — no password, no real account. A game&apos;s own link is its invite —
+            whoever opens it can join if a seat is free. Deliberate, documented tradeoff for a personal project.
+          </Callout>
+          <Callout>
+            Not built yet: selling into different countries, factories, transport cost, licenses, and paid market
+            research. Fully specified for later in docs/REGIONS_DESIGN.md, not implemented.
+          </Callout>
+        </Section>
+
         <Section title="Difficulty levels">
           <p>
             <strong>Beginner:</strong> only price and production volume per product, plus company marketing.

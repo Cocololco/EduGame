@@ -113,6 +113,37 @@ Each year: an independent 25% chance of a market-wide ("global") event and a 25%
 | Supply disruption | one product | unit cost ×1.15 |
 | Competitor price war | one product | effective price capped at ×0.95 of what you set |
 
+## Multiplayer
+
+2+ players (plus optional bots) share one market per product — **each product's demand pool is split by category leadership, not smoothed proportionally.** Every year, for each product, four categories each hand their whole weighted share to whoever's winning that category outright (ties split evenly):
+
+- **Cheapest price** wins the price share
+- **Highest quality** wins the quality share
+- **Highest brand awareness** (company-wide) wins the brand share
+- **Highest innovation** (company-wide) wins the innovation share
+
+Each product has its own weights (`ProductDefinition.demandWeights`, same table as the solo attractiveness factors conceptually, but used differently here):
+
+| Product | Price | Quality | Brand | Innovation |
+|---|---|---|---|---|
+| Shortboard | 60 | 15 | 15 | 10 |
+| Longboard | 35 | 30 | 25 | 10 |
+| Fishboard | 10 | 50 | 30 | 10 |
+
+So on shortboard, undercutting on price alone nets you 60% of that product's whole demand pool regardless of your quality/brand/innovation standing — but on fishboard, price barely matters and you need to win quality+brand+innovation (90% combined) to dominate it. A player who wins nothing gets 0% of that product's demand that year (their other two lines may still carry them).
+
+**This deliberately doesn't redistribute a winner's demand if they can't produce/sell it all** — production/labor-capacity caps still apply per player; a capacity-starved leader just leaves demand on the table rather than handing it to the runner-up.
+
+**Total demand pool per product** = `product.baseDemandUnits × number of players` (so a 4-player game has 4× the demand of a 1-player game, all else equal) — untouched by anything else on this page; solo mode's continuous attractiveness formula (the "Pricing & demand" section above) is completely separate and unaffected by any of this.
+
+**Bots** fill any seats reserved for them at game creation, regardless of how many humans actually joined. Three fixed personalities, cycled in order as bots are added: **aggressive** (price 0.8× reference, produces flat-out, light investment), **premium** (price 1.3× reference, produces ~70% of capacity, heavy quality/brand/R&D spend), **balanced** (price at reference, ~85% production, moderate everything). Bots don't adapt to rivals or the market — they're the same formula every year regardless of how the game is going. Good enough to fill a table, not a serious opponent.
+
+**Turn resolution**: every human player must submit before the year resolves (bots' decisions are pre-filled the moment it becomes their turn, so they never hold anything up). Once everyone's in, the year resolves for all players simultaneously and the next year's bot decisions are seeded immediately.
+
+**Sign-in** is a display name only — no password, no real account (see `src/lib/identity.ts`). A game's own URL (`/multiplayer/<id>`) is its invite link; whoever opens it can join if a human seat is free. This is a deliberate, documented tradeoff for a personal project with no sensitive data — see [docs/GAME_DESIGN.md](GAME_DESIGN.md).
+
+⚠️ **Not built yet**: selling into different countries, factories, transport cost, licenses, and paid market research — see [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md) for the full spec of that next layer.
+
 ## Difficulty levels
 
 - **Beginner**: only price and production volume are exposed per product, plus marketing company-wide. Everything else (capacity/quality/training investment, hiring, wage changes, R&D, loans, capex) stays at its default (usually 0/no-op).

@@ -18,11 +18,17 @@ The player is the owner/manager of a **surfboard company** with three product li
 
 ### Multiplayer
 
-- **2–4 players**, sharing **one market** — players' pricing/output/decisions actually affect each other's demand and results (interactive competition, not parallel/independent runs).
-- Round advances only once **everyone has submitted** their decisions for the year (no timer, no host override).
-- **No dedicated host role** — all players are equal; whoever creates the game is just another player.
-- Starting conditions **can vary** between players (randomized or role-based asymmetric starts), rather than everyone starting identical.
+**Implemented** — `/multiplayer/new`, `/multiplayer` (my games), `/multiplayer/[id]` (lobby + play + results); engine in [`src/lib/game/multiplayerEngine.ts`](../src/lib/game/multiplayerEngine.ts); see [docs/RULES.md](RULES.md)'s Multiplayer section for the exact demand math.
+
+- **2–8 players (humans + bots)**, sharing **one market per product** — decisions actually affect each other's demand and results, via a category-leadership demand split (cheapest price / highest quality / highest brand / highest innovation each win their whole weighted share — see RULES.md), not smooth proportional attractiveness.
+- Round advances once **every human has submitted** their decision for the year — bots' decisions are pre-seeded the moment it's their turn, so they never hold anything up. No timer.
+- **No dedicated host role** in the sense of special ongoing powers — all players are equal once in — but whoever creates the game does configure it upfront (years, difficulty, total players, bot count), and any joined player can hit "Start" to close the lobby early.
+- A game's own URL (`/multiplayer/<id>`) doubles as its invite link — human seats fill on a first-come basis up to the configured count; bots fill any remaining reserved seats the moment the game starts.
+- **Bots**: 3 fixed heuristic personalities (aggressive/premium/balanced — see RULES.md), not adaptive to rivals. Good enough to fill a table, not real opponents.
+- Starting conditions are currently identical for every player — the idea of asymmetric starts (randomized or role-based) is still just an idea, not built.
 - Game length is configurable at creation, same as solo.
+- **Sign-in**: a display name only, stored per-browser (`src/lib/identity.ts`) — no password, no server session. The server trusts whatever `userId` a request sends. A deliberate, documented tradeoff: appropriate for a personal game with no sensitive data, not something to build a public product on. Real accounts are still future work (see "Open questions").
+- **Persistence**: multiplayer game state lives server-side as one JSON file per game (`src/lib/server/gameStore.ts`) — the first real backend state this repo has, since two different browsers need to share it (solo games are unaffected, still localStorage-only). On the deployed VPS this is a mounted Docker volume so it survives redeploys — see [docs/DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Decisions per year
 
@@ -69,9 +75,9 @@ Exact weighting formula is TBD — needs balancing once the simulation model exi
 
 ## Open questions (still TBD)
 
-- Exact industry/business flavor (what the company actually makes/sells)
+- **International expansion (countries/factories/transport/licenses/market research)** — fully specified in [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md), not yet built. The single biggest planned addition.
 - Exact scoring formula / weights for the composite score
 - Randomness tuning — how frequent/severe events are, whether difficulty level affects event frequency
-- Max player count edge cases, reconnect/disconnect handling in multiplayer
-- Visual/UI style (dashboard vs. more game-like presentation)
-- Auth provider / database choice for the backend
+- What happens if a player disconnects/never comes back mid-multiplayer-game — right now the game just waits on them forever; no timeout, no way to remove/replace a stalled player
+- Real accounts (password/OAuth) if this ever needs to be more than "trust the userId a request sends" — see `src/lib/identity.ts`'s docstring for the current tradeoff
+- Database choice if the file-per-game JSON store (`src/lib/server/gameStore.ts`) ever needs to scale past "a personal project with a handful of concurrent games"
