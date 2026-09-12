@@ -14,7 +14,7 @@ describe("decideBotYear", () => {
     for (const id of PRODUCT_IDS) {
       const p = decision.products[id];
       expect(p.price).toBeGreaterThan(0);
-      expect(p.productionVolume).toBeGreaterThanOrEqual(0);
+      expect(p.productionVolumeByFactory.france).toBeGreaterThanOrEqual(0);
       expect(p.capacityInvestment).toBeGreaterThanOrEqual(0);
       expect(p.qualityInvestment).toBeGreaterThanOrEqual(0);
       expect(p.trainingSpend).toBeGreaterThanOrEqual(0);
@@ -27,7 +27,9 @@ describe("decideBotYear", () => {
     const premium = decideBotYear("premium", state);
     const aggressive = decideBotYear("aggressive", state);
     expect(premium.products.shortboard.price).toBeGreaterThan(aggressive.products.shortboard.price);
-    expect(premium.products.shortboard.productionVolume).toBeLessThan(aggressive.products.shortboard.productionVolume);
+    expect(premium.products.shortboard.productionVolumeByFactory.france).toBeLessThan(
+      aggressive.products.shortboard.productionVolumeByFactory.france!,
+    );
   });
 });
 

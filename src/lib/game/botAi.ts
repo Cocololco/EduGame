@@ -93,9 +93,17 @@ export function decideBotYear(personality: BotPersonality, state: CompanyYearSta
     const productState = state.products[id];
     const capacity = effectiveCapacity(productState);
 
+    // Bots never open a second factory (see the comment above), so their
+    // production always lands entirely on whichever factories they already
+    // have — in practice always just ["france"].
+    const productionVolumeByFactory: Partial<Record<CountryId, number>> = {};
+    const totalVolume = Math.round(capacity * profile.productionFraction);
+    const perFactory = Math.round(totalVolume / productState.factoryCountries.length);
+    for (const countryId of productState.factoryCountries) productionVolumeByFactory[countryId] = perFactory;
+
     products[id as ProductId] = {
       price: Math.round(def.referencePrice * profile.priceMultiplier),
-      productionVolume: Math.round(capacity * profile.productionFraction),
+      productionVolumeByFactory,
       capacityInvestment: jitter(profile.capacityInvestment),
       qualityInvestment: jitter(profile.qualityInvestment),
       trainingSpend: jitter(profile.trainingSpend),

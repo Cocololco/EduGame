@@ -62,7 +62,7 @@ export interface CountryDefinition {
   id: CountryId;
   name: string;
   description: string;
-  /** Multiplies wages for a product manufactured there (see ProductLineState.factoryCountry). */
+  /** Multiplies wages for a product manufactured there (see ProductLineState.factoryCountries). */
   laborCostMultiplier: number;
   /**
    * Multiplies each product's baseDemandUnits for sales into this country —
@@ -215,12 +215,18 @@ export interface ProductLineState {
   /** Dollar value of that stock, valued at latest unit cost. */
   inventoryValue: number;
   /**
-   * Which country this product line is manufactured in — must be one of
-   * the company's `openedFactoryCountries`. Sets the labor-cost multiplier
-   * for this line's wages, and any country it sells into other than this
-   * one incurs a transport surcharge. Starts as "france".
+   * Every country this product line currently manufactures in — each must
+   * be one of the company's `openedFactoryCountries`. A product can run
+   * factories in more than one country at once (see ProductDecision.
+   * openFactoryIn); its shared employees/wageLevel/productionCapacity pool
+   * is what production is split across, not a separate headcount per
+   * factory — see docs/REGIONS_DESIGN.md for that simplification. Any
+   * country a factory is NOT open in incurs a transport surcharge on sales
+   * there; wages are charged at each factory's own labor-cost multiplier,
+   * weighted by how much of this year's production came from it. Starts
+   * as `["france"]`.
    */
-  factoryCountry: CountryId;
+  factoryCountries: CountryId[];
 }
 
 /**
@@ -244,7 +250,7 @@ export interface CompanyYearState {
   products: Record<ProductId, ProductLineState>;
   /** Countries you're allowed to sell into at all — no license, zero demand there, full stop. Starts ["france"] (free). */
   licensedCountries: CountryId[];
-  /** Countries with an open factory (paid once via a product's relocateFactoryTo) — a product's factoryCountry must be one of these. Starts ["france"] (free). */
+  /** Countries with an open factory (paid once via a product's openFactoryIn, waived for any later product opening one in a country already on this list) — every entry of a product's factoryCountries must be one of these. Starts ["france"] (free). */
   openedFactoryCountries: CountryId[];
   /** Countries whose demandWeights are revealed in the UI (engine always uses the real numbers regardless of this). Starts ["france"] (told to you for free at game start). */
   researchedCountries: CountryId[];
@@ -261,8 +267,23 @@ export interface CompanyYearState {
 
 export interface ProductDecision {
   productId: ProductId;
+  /** Default/fallback price — used for any licensed country without its own entry in priceByCountry, and always for a not-yet-licensed country's demand math. */
   price: number;
-  productionVolume: number;
+  /**
+   * Real price discrimination: an independent price per licensed country,
+   * overriding `price` for that country only. A country with no entry here
+   * just uses `price`. Affects that country's own demand (via the same
+   * price-elasticity formula, using that country's price) and its share of
+   * revenue — see docs/RULES.md.
+   */
+  priceByCountry?: Partial<Record<CountryId, number>>;
+  /**
+   * How many units to produce at EACH of this product's current
+   * factoryCountries (a country with no entry here produces 0). The total
+   * across all factories is still capped by the shared labor/physical
+   * capacity, same as a single-factory product — see docs/RULES.md.
+   */
+  productionVolumeByFactory: Partial<Record<CountryId, number>>;
   /** Spend to expand this product's production capacity, next year. */
   capacityInvestment: number;
   /** Spend to raise this product's quality index, next year. */
@@ -274,12 +295,15 @@ export interface ProductDecision {
   /** e.g. +5 for a 5% raise. */
   wageAdjustmentPct: number;
   /**
-   * Move this product's manufacturing to a different country, effective
-   * next year. If that country isn't already in `openedFactoryCountries`,
-   * this pays that country's one-time factoryCost. Set to the current
-   * factoryCountry (or omit) for "stay put, no cost".
+   * Open an ADDITIONAL manufacturing base for this product in this
+   * country, effective next year (on top of, not instead of, any factories
+   * it already runs — see ProductLineState.factoryCountries). If that
+   * country isn't already in `openedFactoryCountries`, this pays its
+   * one-time factoryCost; opening where the company already has a factory
+   * (for this or another product) is free. Omit for "don't open a new one
+   * this year".
    */
-  relocateFactoryTo?: CountryId;
+  openFactoryIn?: CountryId;
 }
 
 export interface CompanyDecision {
@@ -293,8 +317,8 @@ export interface CompanyDecision {
   capexSpend: number;
   /** Buy a license for this country, effective next year (one-time cost, omit/undefined for none this year). */
   licenseCountry?: CountryId;
-  /** Pay to reveal this country's demandWeights in the UI, effective next year (omit/undefined for none this year). */
-  researchCountry?: CountryId;
+  /** Pay to reveal these countries' demandWeights in the UI, effective next year — any number at once, cost is per country (omit/empty for none this year). */
+  researchCountries?: CountryId[];
 }
 
 export interface YearDecision {

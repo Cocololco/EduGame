@@ -1,4 +1,4 @@
-import type { CompanyDecision, CompanyYearState, ProductId, YearDecisionInput } from "@/types/game";
+import type { CompanyDecision, CompanyYearState, CountryId, ProductId, YearDecisionInput } from "@/types/game";
 import { PRODUCT_IDS } from "@/types/game";
 import { nearestOption, priceOptions, productionOptions } from "./decisionOptions";
 import { computeAttractiveness } from "../simulation/simulateYear";
@@ -26,10 +26,16 @@ export function buildDefaultDecisionInput(state: CompanyYearState): YearDecision
     const projectedDemand = Math.round(def.baseDemandUnits * attractiveness);
     const prodOpts = productionOptions(productState);
     const defaultProduction = nearestOption(prodOpts, projectedDemand);
+    // Split evenly across however many factories are currently open for
+    // this product — degenerates to "the whole amount" when there's just
+    // one (the common case, and the only case below Advanced difficulty).
+    const productionVolumeByFactory: Partial<Record<CountryId, number>> = {};
+    const perFactory = Math.round(defaultProduction / productState.factoryCountries.length);
+    for (const countryId of productState.factoryCountries) productionVolumeByFactory[countryId] = perFactory;
 
     products[id] = {
       price: defaultPrice,
-      productionVolume: defaultProduction,
+      productionVolumeByFactory,
       capacityInvestment: 0,
       qualityInvestment: 0,
       trainingSpend: 0,

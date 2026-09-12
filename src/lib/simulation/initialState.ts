@@ -23,7 +23,7 @@ export function createInitialCompanyState(startingConditions: StartingConditions
       productivity: p.startingProductivity,
       inventoryUnits: 0,
       inventoryValue: 0,
-      factoryCountry: "france",
+      factoryCountries: ["france"],
     };
   }
 

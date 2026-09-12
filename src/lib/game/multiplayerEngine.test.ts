@@ -17,7 +17,7 @@ function noOpDecision(): YearDecisionInput {
     const p = DEFAULT_STARTING_CONDITIONS.products[id];
     products[id] = {
       price: p.startingPrice,
-      productionVolume: 100,
+      productionVolumeByFactory: { france: 100 },
       capacityInvestment: 0,
       qualityInvestment: 0,
       trainingSpend: 0,

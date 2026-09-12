@@ -147,6 +147,7 @@ export default function PlayClient() {
                   state={latestState.products[id]}
                   companyBrandAwareness={latestState.brandAwareness}
                   companyInnovation={latestState.innovation}
+                  licensedCountries={latestState.licensedCountries}
                   openedFactoryCountries={latestState.openedFactoryCountries}
                   value={form.products[id]}
                   onChange={(next) => setForm({ ...form, products: { ...form.products, [id]: next } })}

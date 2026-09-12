@@ -59,11 +59,31 @@ export function priceOptions(def: ProductDefinition): FieldOption[] {
   });
 }
 
+/**
+ * Per-COUNTRY price override tiers for one product — same tiers as
+ * priceOptions(), plus a leading sentinel (value 0, never a real price
+ * tier) meaning "no override, fall back to the default price". Used one
+ * dropdown per licensed country (real price discrimination) alongside the
+ * single default `price` field — see ProductDecision.priceByCountry.
+ */
+export function priceByCountryOptions(def: ProductDefinition, defaultPrice: number): FieldOption[] {
+  return [{ value: 0, label: `Use default price ($${defaultPrice})` }, ...priceOptions(def)];
+}
+
 /** Effective capacity right now: min(physical capacity, what current staff can produce). */
 export function effectiveCapacity(product: ProductLineState): number {
   return Math.min(product.productionCapacity, computeLaborCapacity(product));
 }
 
+/**
+ * Tiers for ONE factory's production-volume decision, as a % of the
+ * product's TOTAL shared effective capacity (see ProductLineState —
+ * capacity/staffing is one pool across all of a product's factories, not
+ * split per factory). When a product has only one factory (the common
+ * case), this is exactly the whole decision, same as before multi-factory
+ * existed; with more than one open, the UI shows one of these per factory
+ * and the engine caps their COMBINED total to capacity.
+ */
 export function productionOptions(product: ProductLineState): FieldOption[] {
   const capacity = Math.round(effectiveCapacity(product));
   const staffLimited = computeLaborCapacity(product) < product.productionCapacity;
@@ -207,7 +227,7 @@ export function capexOptions(): FieldOption[] {
 // ===== International expansion (licenses, market research, factories) =====
 // See docs/REGIONS_DESIGN.md. All three are one-time purchases (not annual
 // spend like marketing/R&D) that take effect next year — this year's demand
-// still runs on the opening licensedCountries/factoryCountry.
+// still runs on the opening licensedCountries/factoryCountries.
 
 /** Countries the company can still license this year (already-licensed ones aren't offered again). */
 export function licenseCountryOptions(state: CompanyYearState): CountryFieldOption[] {
@@ -232,35 +252,51 @@ export function licenseCountryOptions(state: CompanyYearState): CountryFieldOpti
   return options;
 }
 
-/** Countries whose customer-preference weights aren't yet revealed in the UI (France is free from the start — see initialState.ts). */
-export function researchCountryOptions(state: CompanyYearState): CountryFieldOption[] {
-  const options: CountryFieldOption[] = [{ value: "", label: "None — no research this year" }];
+export interface ResearchOption {
+  countryId: CountryId;
+  label: string;
+}
+
+/**
+ * Countries whose customer-preference weights aren't yet revealed in the
+ * UI (France is free from the start — see initialState.ts). Any number can
+ * be bought in the same year (CompanyDecision.researchCountries), so this
+ * returns one entry per available country for a checkbox list, not a
+ * single-choice dropdown — there's no "none" sentinel to render since
+ * leaving every box unchecked already means "no research this year".
+ */
+export function researchCountryOptions(state: CompanyYearState): ResearchOption[] {
+  const options: ResearchOption[] = [];
   for (const id of COUNTRY_IDS) {
     if (state.researchedCountries.includes(id)) continue;
     const def = getCountryDefinition(id);
     options.push({
-      value: id,
+      countryId: id,
       label: `${def.name} — $${def.researchCost.toLocaleString()} (reveals its price/quality/brand/innovation preferences next yr)`,
     });
   }
-  if (options.length === 1) return [{ value: "", label: "Already researched every country" }];
   return options;
 }
 
-/** Where a product's factory could relocate to (labor-cost multiplier shown; opening a NEW country's factory costs its factoryCost, reusing one already open is free). */
-export function factoryRelocationOptions(product: ProductLineState, openedFactoryCountries: CountryId[]): CountryFieldOption[] {
-  const currentDef = getCountryDefinition(product.factoryCountry);
-  const options: CountryFieldOption[] = [
-    { value: "", label: `Stay in ${currentDef.name} (labor ×${currentDef.laborCostMultiplier})` },
-  ];
+/**
+ * Countries where a product could open an ADDITIONAL factory (on top of
+ * the ones it already runs — see ProductLineState.factoryCountries), with
+ * each one's labor-cost multiplier shown; opening in a country the company
+ * has never manufactured ANYTHING in before costs that country's
+ * factoryCost, reusing one already open (for this or another product) is
+ * free.
+ */
+export function factoryOpenOptions(product: ProductLineState, openedFactoryCountries: CountryId[]): CountryFieldOption[] {
+  const options: CountryFieldOption[] = [{ value: "", label: "None — don't open a new factory this year" }];
   for (const id of COUNTRY_IDS) {
-    if (id === product.factoryCountry) continue;
+    if (product.factoryCountries.includes(id)) continue;
     const def = getCountryDefinition(id);
     const alreadyOpen = openedFactoryCountries.includes(id);
     options.push({
       value: id,
-      label: `${def.name} — ${alreadyOpen ? "factory already open" : `$${def.factoryCost.toLocaleString()} to open`} (labor ×${def.laborCostMultiplier}, next yr)`,
+      label: `${def.name} — ${alreadyOpen ? "factory already open elsewhere (free to use)" : `$${def.factoryCost.toLocaleString()} to open`} (labor ×${def.laborCostMultiplier}, next yr)`,
     });
   }
+  if (options.length === 1) return [{ value: "", label: "Already manufacturing in every country" }];
   return options;
 }

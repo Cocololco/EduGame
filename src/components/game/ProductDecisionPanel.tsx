@@ -6,9 +6,11 @@ import type { FieldOption } from "@/lib/game/decisionOptions";
 import { PRODUCT_FIELDS_BY_DIFFICULTY } from "@/lib/game/difficulty";
 import {
   capacityInvestmentOptions,
-  factoryRelocationOptions,
+  effectiveCapacity,
+  factoryOpenOptions,
   fireOptions,
   hireOptions,
+  priceByCountryOptions,
   priceOptions,
   productionOptions,
   qualityInvestmentOptions,
@@ -16,6 +18,7 @@ import {
   wageAdjustmentOptions,
 } from "@/lib/game/decisionOptions";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { getCountryDefinition } from "@/lib/simulation/countries";
 import { computeAttractiveness } from "@/lib/simulation/simulateYear";
 import { ProductIcon } from "./ProductIcon";
 
@@ -24,6 +27,7 @@ interface Props {
   state: ProductLineState;
   companyBrandAwareness: number;
   companyInnovation: number;
+  licensedCountries: CountryId[];
   openedFactoryCountries: CountryId[];
   value: ProductDecisionInput;
   onChange: (next: ProductDecisionInput) => void;
@@ -35,6 +39,7 @@ export function ProductDecisionPanel({
   state,
   companyBrandAwareness,
   companyInnovation,
+  licensedCountries,
   openedFactoryCountries,
   value,
   onChange,
@@ -44,16 +49,18 @@ export function ProductDecisionPanel({
     onChange({ ...value, [key]: v });
   }
 
+  const totalProductionVolume = Object.values(value.productionVolumeByFactory).reduce((sum, v) => sum + (v ?? 0), 0);
+  const hasCountryPriceOverrides = Object.keys(value.priceByCountry ?? {}).length > 0;
+
   const attractiveness = computeAttractiveness(state, companyBrandAwareness, companyInnovation, value.price, def.referencePrice);
   const potentialDemand = Math.round(def.baseDemandUnits * attractiveness);
-  const unitsAvailable = state.inventoryUnits + value.productionVolume;
+  const unitsAvailable = state.inventoryUnits + totalProductionVolume;
   const projectedUnitsSold = Math.round(Math.max(0, Math.min(potentialDemand, unitsAvailable)));
   const projectedRevenue = projectedUnitsSold * value.price;
   const projectedGrossProfit = projectedUnitsSold * (value.price - def.baseUnitCost);
 
   const allFields: { key: keyof ProductDecisionInput; label: string; options: FieldOption[] }[] = [
     { key: "price", label: "Price ($/unit)", options: priceOptions(def) },
-    { key: "productionVolume", label: "Production volume", options: productionOptions(state) },
     { key: "capacityInvestment", label: "Capacity investment ($)", options: capacityInvestmentOptions(companyInnovation) },
     { key: "qualityInvestment", label: "Quality investment ($)", options: qualityInvestmentOptions() },
     { key: "trainingSpend", label: "Training spend ($)", options: trainingOptions() },
@@ -63,7 +70,10 @@ export function ProductDecisionPanel({
   ];
   const visible = new Set(PRODUCT_FIELDS_BY_DIFFICULTY[difficulty]);
   const fields = allFields.filter((f) => visible.has(f.key));
-  const showFactoryRelocation = visible.has("relocateFactoryTo");
+  const showProduction = visible.has("productionVolumeByFactory");
+  const showFactoryOpen = visible.has("openFactoryIn");
+  const otherLicensedCountries = licensedCountries.filter((c) => c !== "france");
+  const showPriceByCountry = visible.has("priceByCountry") && otherLicensedCountries.length > 0;
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
@@ -80,7 +90,7 @@ export function ProductDecisionPanel({
           ~{formatNumber(potentialDemand)} units of demand at this price → est. {formatNumber(projectedUnitsSold)} sold,{" "}
           {formatCurrency(projectedRevenue)} revenue, {formatCurrency(projectedGrossProfit)} gross profit.
         </p>
-        {value.productionVolume > potentialDemand && (
+        {totalProductionVolume > potentialDemand && (
           <p className="mt-1 text-amber-700 dark:text-amber-400">
             Producing more than you&apos;ll likely sell — the rest becomes inventory.
           </p>
@@ -90,6 +100,12 @@ export function ProductDecisionPanel({
             Selling below cost (${def.baseUnitCost}/unit) — every unit sold loses money before overhead.
           </p>
         )}
+        {hasCountryPriceOverrides && (
+          <p className="mt-1 text-zinc-500 dark:text-zinc-400">
+            This estimate uses your default price only — the countries you&apos;ve set a different price for will see
+            their own demand/revenue adjust separately.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3">
@@ -97,7 +113,7 @@ export function ProductDecisionPanel({
           <label key={f.key} className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">{f.label}</span>
             <select
-              value={value[f.key]}
+              value={value[f.key] as number}
               onChange={(e) => set(f.key, Number(e.target.value))}
               className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
             >
@@ -110,16 +126,87 @@ export function ProductDecisionPanel({
           </label>
         ))}
 
-        {showFactoryRelocation && (
+        {showProduction && (
+          <div className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Production volume{state.factoryCountries.length > 1 ? " (per factory)" : ""}
+            </span>
+            {state.factoryCountries.map((countryId) => (
+              <label key={countryId} className="flex flex-col gap-1">
+                {state.factoryCountries.length > 1 && (
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{getCountryDefinition(countryId).name}</span>
+                )}
+                <select
+                  value={value.productionVolumeByFactory[countryId] ?? 0}
+                  onChange={(e) =>
+                    onChange({
+                      ...value,
+                      productionVolumeByFactory: { ...value.productionVolumeByFactory, [countryId]: Number(e.target.value) },
+                    })
+                  }
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                >
+                  {productionOptions(state).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            {state.factoryCountries.length > 1 && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                All factories share one staff/capacity pool ({formatNumber(effectiveCapacity(state))} units max
+                combined) — the mix between factories only changes each one&apos;s share of the wage bill&apos;s
+                labor cost.
+              </p>
+            )}
+          </div>
+        )}
+
+        {showPriceByCountry && (
+          <div className="flex flex-col gap-2 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">Price per country (overrides the default above)</span>
+            {otherLicensedCountries.map((countryId) => (
+              <label key={countryId} className="flex flex-col gap-1">
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">{getCountryDefinition(countryId).name}</span>
+                <select
+                  value={value.priceByCountry?.[countryId] ?? 0}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    const next = { ...(value.priceByCountry ?? {}) };
+                    if (v === 0) delete next[countryId];
+                    else next[countryId] = v;
+                    onChange({ ...value, priceByCountry: next });
+                  }}
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                >
+                  {priceByCountryOptions(def, value.price).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {showFactoryOpen && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">Factory location</span>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Open a new factory{" "}
+              <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                (currently: {state.factoryCountries.map((c) => getCountryDefinition(c).name).join(", ")})
+              </span>
+            </span>
             <select
-              value={value.relocateFactoryTo ?? ""}
-              onChange={(e) => onChange({ ...value, relocateFactoryTo: (e.target.value || undefined) as ProductDecisionInput["relocateFactoryTo"] })}
+              value={value.openFactoryIn ?? ""}
+              onChange={(e) => onChange({ ...value, openFactoryIn: (e.target.value || undefined) as ProductDecisionInput["openFactoryIn"] })}
               className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
             >
-              {factoryRelocationOptions(state, openedFactoryCountries).map((opt) => (
-                <option key={opt.value || "stay"} value={opt.value}>
+              {factoryOpenOptions(state, openedFactoryCountries).map((opt) => (
+                <option key={opt.value || "none"} value={opt.value}>
                   {opt.label}
                 </option>
               ))}

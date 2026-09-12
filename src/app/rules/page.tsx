@@ -279,17 +279,25 @@ export default function RulesPage() {
               for every product, full stop.
             </li>
             <li>
-              <strong>Factory</strong> (per product, one-time per country the first time anyone opens one there):
-              sets that product&apos;s manufacturing base and its labor-cost multiplier on wages. One workforce per
-              product, wherever its factory currently is.
+              <strong>Price per country:</strong> a product&apos;s price is the default, used anywhere you don&apos;t
+              set something more specific — but you can override it per licensed country (real price
+              discrimination). Each country&apos;s own price drives its own demand there.
+            </li>
+            <li>
+              <strong>Factory</strong> (per product, one-time per country the first time anyone opens one there,
+              free if the company already manufactures anything elsewhere): opens an <em>additional</em>{" "}
+              manufacturing base — a product can run factories in more than one country at once, sharing one pool
+              of employees/wages/capacity, with the wage bill&apos;s labor-cost multiplier weighted by each
+              factory&apos;s share of this year&apos;s production.
             </li>
             <li>
               <strong>Transport cost:</strong> a flat <strong>+$5/unit</strong> surcharge on units sold into a
-              country other than a product&apos;s factory country.
+              country with no open factory for that product.
             </li>
             <li>
-              <strong>Market research</strong> (company-wide, one-time): reveals a country&apos;s price/quality/
-              brand/innovation weights in the status table. UI-only — the simulation always uses the real weights.
+              <strong>Market research</strong> (company-wide, any number of countries per year): reveals a
+              country&apos;s price/quality/brand/innovation weights in the status table. UI-only — the simulation
+              always uses the real weights.
             </li>
           </ul>
           <p>
@@ -305,7 +313,8 @@ export default function RulesPage() {
             <strong>Beginner:</strong> only price and production volume per product, plus company marketing.
             Everything else stays at its default. <strong>Standard:</strong> the full decision set, except
             international expansion. <strong>Advanced:</strong> same as Standard, plus international expansion
-            (factory relocation per product; licenses and market research company-wide).
+            (per-country pricing, opening additional factories, licenses, and market research for any number of
+            countries per year).
           </p>
         </Section>
 

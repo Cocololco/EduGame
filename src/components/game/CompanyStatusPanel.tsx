@@ -84,7 +84,9 @@ export function CompanyStatusPanel({
                   <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{Math.round(p.quality)}/100</td>
                   <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{Math.round(p.productivity)}/100</td>
                   <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatNumber(p.inventoryUnits)}</td>
-                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{getCountryDefinition(p.factoryCountry).name}</td>
+                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">
+                    {p.factoryCountries.map((id) => getCountryDefinition(id).name).join(", ")}
+                  </td>
                 </tr>
               );
             })}

@@ -9,7 +9,7 @@ import { saveGame } from "@/lib/game/storage";
 const DIFFICULTY_OPTIONS: { value: DifficultyLevel; label: string; description: string }[] = [
   { value: "beginner", label: "Beginner", description: "Just price, production, and marketing — everything else stays put." },
   { value: "standard", label: "Standard", description: "The full decision set: staffing, training, quality, R&D, financing." },
-  { value: "advanced", label: "Advanced", description: "Same as Standard for now." },
+  { value: "advanced", label: "Advanced", description: "Standard, plus international expansion — licenses, factories, per-country pricing, market research." },
 ];
 
 export default function NewGameClient() {

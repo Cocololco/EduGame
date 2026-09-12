@@ -23,7 +23,7 @@ function noOpProductDecision(id: ProductId, overrides: Partial<ProductDecision> 
   return {
     productId: id,
     price: state.startingPrice,
-    productionVolume: state.startingCapacity,
+    productionVolumeByFactory: { france: state.startingCapacity },
     capacityInvestment: 0,
     qualityInvestment: 0,
     trainingSpend: 0,
@@ -94,7 +94,7 @@ describe("simulateYear", () => {
     const state = baseState();
     state.products.shortboard = { ...state.products.shortboard, productionCapacity: 100 };
     const result = simulateYear({
-      decision: baseDecision("p1", { products: { shortboard: { productionVolume: 999999 } } }),
+      decision: baseDecision("p1", { products: { shortboard: { productionVolumeByFactory: { france: 999999 } } } }),
       openingState: state,
       events: [],
     });
@@ -106,7 +106,7 @@ describe("simulateYear", () => {
     const state = baseState();
     state.products.fishboard = { ...state.products.fishboard, employees: 0 };
     const result = simulateYear({
-      decision: baseDecision("p1", { products: { fishboard: { productionVolume: 999999 } } }),
+      decision: baseDecision("p1", { products: { fishboard: { productionVolumeByFactory: { france: 999999 } } } }),
       openingState: state,
       events: [],
     });
@@ -155,7 +155,7 @@ describe("simulateYear", () => {
       state.products[id] = { ...state.products[id], productionCapacity: 100000, employees: 1000 };
     }
     const decision = baseDecision("p1", {
-      products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+      products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 } }])) as never,
     });
     const noEvent = simulateYear({ decision, openingState: state, events: [] });
     const boostEvent: RandomEvent = {
@@ -181,7 +181,7 @@ describe("simulateYear", () => {
       state.products[id] = { ...state.products[id], productionCapacity: 100000, employees: 1000 };
     }
     const decision = baseDecision("p1", {
-      products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+      products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 } }])) as never,
     });
     const noEvent = simulateYear({ decision, openingState: state, events: [] });
     const targetedEvent: RandomEvent = {
@@ -264,7 +264,7 @@ describe("simulateMultiplayerYear", () => {
     }
     const decision = (playerId: string) =>
       baseDecision(playerId, {
-        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 } }])) as never,
       });
 
     const { market, results } = simulateMultiplayerYear({
@@ -301,7 +301,7 @@ describe("simulateMultiplayerYear", () => {
 
     const decision = (playerId: string) =>
       baseDecision(playerId, {
-        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 } }])) as never,
       });
 
     const { market } = simulateMultiplayerYear({
@@ -325,12 +325,12 @@ describe("simulateMultiplayerYear", () => {
     }
     const cheapLowQuality = baseDecision("p1", {
       products: Object.fromEntries(
-        PRODUCT_IDS.map((id) => [id, { productionVolume: 100000, price: PRODUCT_DEFINITIONS[id].referencePrice * 0.5 }]),
+        PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 }, price: PRODUCT_DEFINITIONS[id].referencePrice * 0.5 }]),
       ) as never,
     });
     const pricierHighQuality = baseDecision("p2", {
       products: Object.fromEntries(
-        PRODUCT_IDS.map((id) => [id, { productionVolume: 100000, price: PRODUCT_DEFINITIONS[id].referencePrice * 1.5 }]),
+        PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 }, price: PRODUCT_DEFINITIONS[id].referencePrice * 1.5 }]),
       ) as never,
     });
     // NOTE: build p2's products as a fresh object — `{...state, products:
@@ -381,7 +381,7 @@ describe("simulateMultiplayerYear", () => {
     // Three identical players, all tied on every category.
     const decision = (playerId: string) =>
       baseDecision(playerId, {
-        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 } }])) as never,
       });
 
     const { results } = simulateMultiplayerYear({
@@ -427,7 +427,7 @@ describe("countries: per-product demand size", () => {
     }
     const decision = baseDecision(
       "p1",
-      { products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never },
+      { products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 } }])) as never },
     );
 
     const australiaResult = simulateYear({ decision, openingState: inAustralia, events: [] });
@@ -453,7 +453,7 @@ describe("countries: year-over-year demand growth", () => {
     const state = baseState({ licensedCountries: ["morocco"] });
     state.products.shortboard = { ...state.products.shortboard, productionCapacity: 100000, employees: 1000 };
 
-    const decisionYear1 = baseDecision("p1", { products: { shortboard: { productionVolume: 100000 } } });
+    const decisionYear1 = baseDecision("p1", { products: { shortboard: { productionVolumeByFactory: { france: 100000 } } } });
     const decisionYear11 = { ...decisionYear1, year: 11 }; // 10 years of compounding elapsed
 
     const year1 = simulateYear({ decision: decisionYear1, openingState: state, events: [] });
@@ -481,7 +481,7 @@ describe("countries: licenses", () => {
     const licensedBoth = baseState({ licensedCountries: ["france", "australia"] });
 
     const decision = baseDecision("p1", {
-      products: { shortboard: { productionVolume: 100000 } },
+      products: { shortboard: { productionVolumeByFactory: { france: 100000 } } },
     });
     const stateWithBigCapacity = { ...licensedOnlyFrance, products: { ...licensedOnlyFrance.products, shortboard: { ...licensedOnlyFrance.products.shortboard, productionCapacity: 100000, employees: 1000 } } };
     const stateWithBigCapacityAndAustralia = { ...licensedBoth, products: { ...licensedBoth.products, shortboard: { ...licensedBoth.products.shortboard, productionCapacity: 100000, employees: 1000 } } };
@@ -518,26 +518,26 @@ describe("countries: licenses", () => {
 });
 
 describe("countries: factories, labor cost, transport", () => {
-  it("relocating a factory changes wages next year, not this year", () => {
+  it("opening a new factory changes wages next year, not this year, and ADDS to the existing factory rather than replacing it", () => {
     const state = baseState({ openedFactoryCountries: ["france", "morocco"] });
-    state.products.shortboard = { ...state.products.shortboard, factoryCountry: "france" };
+    state.products.shortboard = { ...state.products.shortboard, factoryCountries: ["france"] };
 
-    const decision = baseDecision("p1", { products: { shortboard: { relocateFactoryTo: "morocco" } } });
+    const decision = baseDecision("p1", { products: { shortboard: { openFactoryIn: "morocco" } } });
     const result = simulateYear({ decision, openingState: state, events: [] });
-    const noRelocate = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
+    const noNewFactory = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
 
-    // This year's wages are identical (still France's labor cost) regardless of the relocation decision...
+    // This year's wages are identical (still 100% France's labor cost) regardless of the decision...
     const wages = (r: typeof result) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.wagesExpense;
-    expect(wages(result)).toBeCloseTo(wages(noRelocate), 6);
-    // ...but the closing state reflects the move, ready for next year.
-    expect(result.closingState.products.shortboard.factoryCountry).toBe("morocco");
+    expect(wages(result)).toBeCloseTo(wages(noNewFactory), 6);
+    // ...but the closing state now runs BOTH factories, ready for next year's production split.
+    expect(result.closingState.products.shortboard.factoryCountries).toEqual(["france", "morocco"]);
   });
 
-  it("a lower labor-cost factory country reduces wages the year after relocating", () => {
+  it("a lower labor-cost factory country reduces wages, weighted by that factory's share of production", () => {
     const cheapState = baseState();
-    cheapState.products.shortboard = { ...cheapState.products.shortboard, factoryCountry: "china" };
+    cheapState.products.shortboard = { ...cheapState.products.shortboard, factoryCountries: ["china"] };
     const expensiveState = baseState();
-    expensiveState.products.shortboard = { ...expensiveState.products.shortboard, factoryCountry: "france" };
+    expensiveState.products.shortboard = { ...expensiveState.products.shortboard, factoryCountries: ["france"] };
 
     const decision = baseDecision("p1");
     const cheap = simulateYear({ decision, openingState: cheapState, events: [] });
@@ -552,19 +552,20 @@ describe("countries: factories, labor cost, transport", () => {
     const state = baseState({ openedFactoryCountries: ["france"] });
     const cost = getCountryDefinition("morocco").factoryCost;
 
-    const relocate = baseDecision("p1", { products: { shortboard: { relocateFactoryTo: "morocco" } } });
+    const openNew = baseDecision("p1", { products: { shortboard: { openFactoryIn: "morocco" } } });
     const stayPut = baseDecision("p1");
-    const relocated = simulateYear({ decision: relocate, openingState: state, events: [] });
+    const opened = simulateYear({ decision: openNew, openingState: state, events: [] });
     const stayed = simulateYear({ decision: stayPut, openingState: state, events: [] });
 
-    expect(relocated.closingState.fixedAssets - stayed.closingState.fixedAssets).toBeCloseTo(cost, 6);
-    expect(relocated.closingState.openedFactoryCountries).toContain("morocco");
+    expect(opened.closingState.fixedAssets - stayed.closingState.fixedAssets).toBeCloseTo(cost, 6);
+    expect(opened.closingState.openedFactoryCountries).toContain("morocco");
+    expect(opened.closingState.products.shortboard.factoryCountries).toEqual(["france", "morocco"]);
 
-    // Second product relocating to the SAME already-open country this year shouldn't be charged again.
-    const relocateTwoProducts = baseDecision("p1", {
-      products: { shortboard: { relocateFactoryTo: "morocco" }, longboard: { relocateFactoryTo: "morocco" } },
+    // Second product opening a factory in the SAME newly-opened country this year shouldn't be charged again.
+    const openTwoProducts = baseDecision("p1", {
+      products: { shortboard: { openFactoryIn: "morocco" }, longboard: { openFactoryIn: "morocco" } },
     });
-    const both = simulateYear({ decision: relocateTwoProducts, openingState: state, events: [] });
+    const both = simulateYear({ decision: openTwoProducts, openingState: state, events: [] });
     expect(both.closingState.fixedAssets - stayed.closingState.fixedAssets).toBeCloseTo(cost, 6); // still just ONE factoryCost
   });
 
@@ -572,10 +573,10 @@ describe("countries: factories, labor cost, transport", () => {
     const domesticOnly = baseState({ licensedCountries: ["france"] });
     const withExport = baseState({ licensedCountries: ["france", "australia"] });
     for (const s of [domesticOnly, withExport]) {
-      s.products.shortboard = { ...s.products.shortboard, productionCapacity: 100000, employees: 1000, factoryCountry: "france" };
+      s.products.shortboard = { ...s.products.shortboard, productionCapacity: 100000, employees: 1000, factoryCountries: ["france"] };
     }
 
-    const decision = baseDecision("p1", { products: { shortboard: { productionVolume: 100000 } } });
+    const decision = baseDecision("p1", { products: { shortboard: { productionVolumeByFactory: { france: 100000 } } } });
     const domesticResult = simulateYear({ decision, openingState: domesticOnly, events: [] });
     const exportResult = simulateYear({ decision, openingState: withExport, events: [] });
 
@@ -603,7 +604,7 @@ describe("countries: multiplayer license gating", () => {
 
     const decision = (playerId: string) =>
       baseDecision(playerId, {
-        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolumeByFactory: { france: 100000 } }])) as never,
       });
 
     const { results } = simulateMultiplayerYear({
@@ -620,5 +621,130 @@ describe("countries: multiplayer license gating", () => {
     // Australia; the other player gets France's other half PLUS all of Australia.
     const shortboardSold = (i: number) => results[i].incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.unitsSold;
     expect(shortboardSold(1)).toBeGreaterThan(shortboardSold(0));
+  });
+});
+
+describe("countries: multi-country research", () => {
+  it("buys research for multiple countries in the same year, summing their costs", () => {
+    const state = baseState();
+    const decision = baseDecision("p1", { company: { researchCountries: ["morocco", "portugal"] } });
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const withoutResearch = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
+
+    const expectedCost = getCountryDefinition("morocco").researchCost + getCountryDefinition("portugal").researchCost;
+    expect(withoutResearch.closingState.cash - result.closingState.cash).toBeCloseTo(expectedCost, 6);
+    expect(result.closingState.researchedCountries).toContain("morocco");
+    expect(result.closingState.researchedCountries).toContain("portugal");
+  });
+
+  it("doesn't charge again for a country already researched, even if listed again", () => {
+    const state = baseState({ researchedCountries: ["france", "morocco"] });
+    const decision = baseDecision("p1", { company: { researchCountries: ["morocco", "portugal"] } });
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const onlyPortugal = simulateYear({
+      decision: baseDecision("p1", { company: { researchCountries: ["portugal"] } }),
+      openingState: state,
+      events: [],
+    });
+    // Re-listing an already-researched country costs nothing extra.
+    expect(result.closingState.cash).toBeCloseTo(onlyPortugal.closingState.cash, 6);
+  });
+});
+
+describe("countries: price per country", () => {
+  it("a lower price override for one licensed country increases only that country's demand, pulling revenue-per-unit below the flat default", () => {
+    const state = baseState({ licensedCountries: ["france", "morocco"] });
+    state.products.shortboard = { ...state.products.shortboard, productionCapacity: 100000, employees: 1000 };
+
+    const flatPrice = baseDecision("p1", { products: { shortboard: { productionVolumeByFactory: { france: 100000 } } } });
+    const cheaperInMorocco = baseDecision("p1", {
+      products: {
+        shortboard: {
+          productionVolumeByFactory: { france: 100000 },
+          priceByCountry: { morocco: PRODUCT_DEFINITIONS.shortboard.referencePrice * 0.5 },
+        },
+      },
+    });
+
+    const flat = simulateYear({ decision: flatPrice, openingState: state, events: [] });
+    const discounted = simulateYear({ decision: cheaperInMorocco, openingState: state, events: [] });
+
+    const shortboard = (r: typeof flat) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+    expect(shortboard(discounted).unitsSold).toBeGreaterThan(shortboard(flat).unitsSold);
+
+    const revenuePerUnit = (r: typeof flat) => shortboard(r).revenue / shortboard(r).unitsSold;
+    expect(revenuePerUnit(discounted)).toBeLessThan(revenuePerUnit(flat));
+  });
+
+  it("multiplayer: an undercut via priceByCountry (not the flat default price) decides who wins that country's price category", () => {
+    const state = baseState({ licensedCountries: ["france"] });
+    state.products.shortboard = { ...state.products.shortboard, productionCapacity: 100000, employees: 1000 };
+
+    // p1's flat default price is HIGHER than p2's, but p1 undercuts
+    // specifically in France via priceByCountry — the country-specific
+    // price should be what the category ranking actually uses.
+    const p1Decision = baseDecision("p1", {
+      products: {
+        shortboard: {
+          price: PRODUCT_DEFINITIONS.shortboard.referencePrice * 2,
+          priceByCountry: { france: PRODUCT_DEFINITIONS.shortboard.referencePrice * 0.5 },
+          productionVolumeByFactory: { france: 100000 },
+        },
+      },
+    });
+    const p2Decision = baseDecision("p2", {
+      products: {
+        shortboard: { price: PRODUCT_DEFINITIONS.shortboard.referencePrice, productionVolumeByFactory: { france: 100000 } },
+      },
+    });
+
+    const { results } = simulateMultiplayerYear({
+      year: 1,
+      players: [
+        { decision: p1Decision, openingState: state, playerEvents: [] },
+        { decision: p2Decision, openingState: state, playerEvents: [] },
+      ],
+      globalEvents: [],
+    });
+
+    const shortboardShare = (i: number) => results[i].incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.marketSharePct!;
+    expect(shortboardShare(0)).toBeGreaterThan(shortboardShare(1));
+  });
+});
+
+describe("multi-factory production", () => {
+  it("weights the wage bill's labor-cost multiplier by each open factory's share of requested production", () => {
+    const state = baseState();
+    state.products.shortboard = {
+      ...state.products.shortboard,
+      factoryCountries: ["france", "morocco"],
+      productionCapacity: 100000,
+      employees: 1000,
+    };
+    const decision = baseDecision("p1", {
+      products: { shortboard: { productionVolumeByFactory: { france: 500, morocco: 500 } } },
+    });
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const wages = result.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.wagesExpense;
+
+    const expectedMultiplier = (getCountryDefinition("france").laborCostMultiplier + getCountryDefinition("morocco").laborCostMultiplier) / 2;
+    const expectedWages = state.products.shortboard.employees * state.products.shortboard.wageLevel * expectedMultiplier;
+    expect(wages).toBeCloseTo(expectedWages, 4);
+  });
+
+  it("caps the COMBINED total across factories at shared capacity/labor, same as a single factory would be", () => {
+    const state = baseState();
+    state.products.shortboard = {
+      ...state.products.shortboard,
+      factoryCountries: ["france", "morocco"],
+      productionCapacity: 100,
+      employees: 1000, // labor capacity is far above 100, so physical capacity (100) is the binding cap
+    };
+    const decision = baseDecision("p1", {
+      products: { shortboard: { productionVolumeByFactory: { france: 90, morocco: 90 } } }, // 180 requested, only 100 possible
+    });
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const unitsProduced = result.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.unitsProduced;
+    expect(unitsProduced).toBe(100);
   });
 });
