@@ -47,6 +47,8 @@ Company-wide (not per-product):
 
 This is a meaningful departure from the original flat four-category design (pricing/production/HR/finance) — see [docs/DATA_MODEL.md](DATA_MODEL.md) for the exact type shapes.
 
+**International expansion (implemented)** — one more per-product decision and two more company-wide ones, gated to the **Advanced** difficulty tier (see "Difficulty / complexity levels" below): per-product **factory relocation** (which of the 5 countries that product manufactures in — free to reuse a country already opened, otherwise a one-time cost), company-wide **license purchase** (the only way to get any demand from a country — no license, zero demand there) and **market research purchase** (reveals a country's customer-preference weights in the UI; purely informational, the simulation always uses the real numbers). Full mechanics in [docs/RULES.md](RULES.md); country catalog and reasoning in [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md).
+
 ## Simulation depth
 
 - **Moderate**: simplified income statement + balance sheet, with key ratios (margin, ROI) — more than just a few headline numbers, short of full accounting realism.
@@ -64,7 +66,7 @@ Exact weighting formula is TBD — needs balancing once the simulation model exi
 
 ## Difficulty / complexity levels
 
-- **Implemented**: Beginner exposes only price + production volume per product, plus company marketing spend; Standard (and, for now, Advanced) expose the full decision set. See [`src/lib/game/difficulty.ts`](../src/lib/game/difficulty.ts).
+- **Implemented**: Beginner exposes only price + production volume per product, plus company marketing spend; Standard expose the full decision set except international expansion; Advanced additionally exposes factory relocation/licenses/market research. See [`src/lib/game/difficulty.ts`](../src/lib/game/difficulty.ts).
 - Contextual guidance *is* shown in the UI (each decision option's effect is spelled out inline, e.g. "$40 — Somewhat low (demand ×1.40, margin $25/unit)"), plus a dedicated `/rules` reference page — this reads as "explaining the simulation's own numbers so players can strategize," not "explaining business concepts," so it doesn't conflict with the original "no tutorial content" intent below.
 - Still true: no in-game *business-concept* teaching (what is gross margin, etc.) — the game is a simulation, not a course. Players are assumed to already understand the underlying business concepts.
 
@@ -75,7 +77,7 @@ Exact weighting formula is TBD — needs balancing once the simulation model exi
 
 ## Open questions (still TBD)
 
-- **International expansion (countries/factories/transport/licenses/market research)** — fully specified in [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md), not yet built. The single biggest planned addition.
+- **International expansion UI polish** — the engine, decisions, and status display are built (see "Decisions per year" above and [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md)); a per-country breakdown on the financials page (revenue/COGS split by country, not just by product) is still deferred, per REGIONS_DESIGN.md's suggested build order.
 - Exact scoring formula / weights for the composite score
 - Randomness tuning — how frequent/severe events are, whether difficulty level affects event frequency
 - What happens if a player disconnects/never comes back mid-multiplayer-game — right now the game just waits on them forever; no timeout, no way to remove/replace a stalled player

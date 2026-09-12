@@ -23,6 +23,7 @@ export function createInitialCompanyState(startingConditions: StartingConditions
       productivity: p.startingProductivity,
       inventoryUnits: 0,
       inventoryValue: 0,
+      factoryCountry: "france",
     };
   }
 
@@ -36,6 +37,12 @@ export function createInitialCompanyState(startingConditions: StartingConditions
     innovation: startingConditions.startingInnovation,
     morale: startingConditions.startingMorale,
     products,
+    // Every company starts able to sell into, and manufacturing in, France
+    // only — expanding elsewhere costs a license/factory. France's own
+    // info is free from the start ("year 1, country 1" — see REGIONS_DESIGN.md).
+    licensedCountries: ["france"],
+    openedFactoryCountries: ["france"],
+    researchedCountries: ["france"],
   };
 }
 

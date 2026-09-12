@@ -6,7 +6,7 @@ A business-management simulation game — run a surfboard company as owner/manag
 
 ## Status
 
-🚧 Both solo and multiplayer are playable at [game.corentinhillion.com](https://game.corentinhillion.com) — run three product lines (shortboard, longboard, luxury fishboard) across a configurable number of years, with a full financial-statements page (solo), a local leaderboard, difficulty levels, and now real multiplayer: sign in with just a name, create a game, send the link, play with bots filling any open seats. Numbers are calculated to make a reasonably-played year profitable, verified by a full playthrough of each mode, but this hasn't had extensive real playtesting yet. Selling into multiple countries (factories/transport/licenses/market research) is designed but not built — see [docs/REGIONS_DESIGN.md](docs/REGIONS_DESIGN.md).
+🚧 Both solo and multiplayer are playable at [game.corentinhillion.com](https://game.corentinhillion.com) — run three product lines (shortboard, longboard, luxury fishboard) across a configurable number of years, with a full financial-statements page (solo), a local leaderboard, difficulty levels, and now real multiplayer: sign in with just a name, create a game, send the link, play with bots filling any open seats. Numbers are calculated to make a reasonably-played year profitable, verified by a full playthrough of each mode, but this hasn't had extensive real playtesting yet. On **Advanced** difficulty you can also expand internationally — license, manufacture in, and research 5 countries (France/Morocco/Portugal/China/Australia), each with its own labor cost, market size, and customer preferences — see [docs/REGIONS_DESIGN.md](docs/REGIONS_DESIGN.md).
 
 ## Concept
 

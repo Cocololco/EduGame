@@ -28,11 +28,20 @@ export const PRODUCT_FIELDS_BY_DIFFICULTY: Record<DifficultyLevel, (keyof Produc
     "hires",
     "fires",
     "wageAdjustmentPct",
+    "relocateFactoryTo",
   ],
 };
 
 export const COMPANY_FIELDS_BY_DIFFICULTY: Record<DifficultyLevel, (keyof CompanyDecision)[]> = {
   beginner: ["marketingSpend"],
   standard: ["marketingSpend", "rndSpend", "loanAmountRequested", "loanRepayment", "capexSpend"],
-  advanced: ["marketingSpend", "rndSpend", "loanAmountRequested", "loanRepayment", "capexSpend"],
+  advanced: [
+    "marketingSpend",
+    "rndSpend",
+    "loanAmountRequested",
+    "loanRepayment",
+    "capexSpend",
+    "licenseCountry",
+    "researchCountry",
+  ],
 };

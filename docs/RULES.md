@@ -132,9 +132,11 @@ Each product has its own weights (`ProductDefinition.demandWeights`, same table 
 
 So on shortboard, undercutting on price alone nets you 60% of that product's whole demand pool regardless of your quality/brand/innovation standing — but on fishboard, price barely matters and you need to win quality+brand+innovation (90% combined) to dominate it. A player who wins nothing gets 0% of that product's demand that year (their other two lines may still carry them).
 
+These are the product's *own* weights — in multiplayer, the category system actually runs per country (see "International expansion" below), using each country's weights **averaged** with the product's, and only among players licensed there. The table above is the product half of that blend; France's own weights (used for the home market) are in the international table.
+
 **This deliberately doesn't redistribute a winner's demand if they can't produce/sell it all** — production/labor-capacity caps still apply per player; a capacity-starved leader just leaves demand on the table rather than handing it to the runner-up.
 
-**Total demand pool per product** = `product.baseDemandUnits × number of players` (so a 4-player game has 4× the demand of a 1-player game, all else equal) — untouched by anything else on this page; solo mode's continuous attractiveness formula (the "Pricing & demand" section above) is completely separate and unaffected by any of this.
+**Total demand pool per product per country** = `product.baseDemandUnits × country.demandMultiplier × number of players licensed there` (so a 4-player game has 4× the demand of a 1-player game in any given country, all else equal) — solo mode's continuous attractiveness formula (the "Pricing & demand" section above) is completely separate and unaffected by any of this.
 
 **Bots** fill any seats reserved for them at game creation, regardless of how many humans actually joined. Three fixed personalities, cycled in order as bots are added: **aggressive** (price 0.8× reference, produces flat-out, light investment), **premium** (price 1.3× reference, produces ~70% of capacity, heavy quality/brand/R&D spend), **balanced** (price at reference, ~85% production, moderate everything). Bots don't adapt to rivals or the market — they're the same formula every year regardless of how the game is going. Good enough to fill a table, not a serious opponent.
 
@@ -142,13 +144,35 @@ So on shortboard, undercutting on price alone nets you 60% of that product's who
 
 **Sign-in** is a display name only — no password, no real account (see `src/lib/identity.ts`). A game's own URL (`/multiplayer/<id>`) is its invite link; whoever opens it can join if a human seat is free. This is a deliberate, documented tradeoff for a personal project with no sensitive data — see [docs/GAME_DESIGN.md](GAME_DESIGN.md).
 
-⚠️ **Not built yet**: selling into different countries, factories, transport cost, licenses, and paid market research — see [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md) for the full spec of that next layer.
+## International expansion (countries, factories, transport, market research)
+
+Full spec: [docs/REGIONS_DESIGN.md](REGIONS_DESIGN.md). Every company starts able to sell into, and manufactures in, **France only** — France's own numbers are known from the start (free license, free factory, revealed preferences); everywhere else costs a decision. Like every other investment, a country decision this year (license/factory/research) only takes effect **next** year — this year's demand and wages still run on the *opening* state.
+
+| Country | Labor cost | Demand size (Short / Long / Fish), year 1 | Growth/yr | Price | Quality | Brand | Innovation | License | Factory | Research |
+|---|---|---|---|---|---|---|---|---|---|---|
+| France (start) | ×1.4 | ×1.3 / ×1.1 / ×0.7 | 0% (mature) | 35 | 30 | 25 | 10 | free | free | free |
+| Morocco | ×0.5 | ×0.7 / ×0.4 / ×0.2 | +2%/yr | 55 | 15 | 20 | 10 | $8,000 | $15,000 | $1,500 |
+| Portugal | ×0.7 | ×1.3 / ×1.2 / ×0.9 | +2.5%/yr | 40 | 25 | 25 | 10 | $15,000 | $25,000 | $2,000 |
+| China | ×0.35 | ×0.5 / ×0.35 / ×0.1 | +5%/yr | 65 | 15 | 15 | 5 | $20,000 | $20,000 | $2,500 |
+| Australia | ×1.05 | ×1.4 / ×1.5 / ×1.6 | +1%/yr | 25 | 30 | 30 | 15 | $25,000 | $35,000 | $3,000 |
+
+**Demand size is per-product** (`CountryDefinition.demandMultiplierByProduct`), not one flat number per country — a country's real surf market skews toward mass-market entry boards or the premium/niche line differently: Morocco/China lean hard toward cheap entry boards with almost no luxury demand, while Australia is the one country where the niche fishboard line does relatively *better* than the mass-market lines (affluent, status-conscious surf culture). Customer *preferences* (the four weight columns) stay one profile per country — see "Blending" below for why that's still enough to make preferences feel product-specific without needing 15 hand-tuned pairs.
+
+**Demand size also compounds year over year** (`CountryDefinition.demandGrowthRatePerYear`) — a slow, deterministic trend, not randomness: `effective = base × (1 + growthRate)^(yearsElapsed)`. Mature markets (France, and Australia mostly) barely move; emerging ones (Morocco, Portugal, and especially China, off its tiny base) get meaningfully bigger the longer a game runs — an incentive to license and get a foothold early rather than wait. All demand-size figures shown in the UI (license options, the company-status international table) are already the *effective* value for the year they'd take effect, not the raw year-1 catalog number.
+
+- **License** (company-wide, one-time per country): the only way to get any demand from that country — no license there means zero demand from it, full stop, for every product. Doesn't change where you manufacture.
+- **Factory** (per product, one-time per country the *first* time any product opens one there — reopening in an already-open country is free): sets that product's manufacturing base, which sets its wage cost (`wagesExpense = employees × wageLevel × country's labor multiplier`). One workforce per product, wherever its factory currently is — not a per-country headcount split.
+- **Transport cost**: a flat **+$5/unit** surcharge on COGS for every unit sold into a country other than a product's factory country (blended proportionally to how much of a solo game's demand comes from each licensed country; in multiplayer it's the same $5/unit on whichever units cross a border).
+- **Market research** (company-wide, one-time per country): reveals that country's price/quality/brand/innovation weights in the company-status table. **UI-only** — the simulation always uses the real weights whether you've researched a country or not; research just lets you *see* them to plan deliberately instead of learning by trial and error.
+- **Blending**: a product's own demand weights (e.g. fishboard is quality/brand-driven) and the destination country's weights are **averaged per category** to get that sale's effective weights — `effective[category] = (product[category] + country[category]) / 2`. A luxury fishboard sold into brand-conscious Australia leans hard into brand/quality; the same fishboard sold into price-driven Morocco gets pulled toward price mattering more than it would in isolation.
+- **Solo mode**: demand sums across every country you're licensed in (`baseDemandUnits × country.demandMultiplier × attractiveness`, using the blended weights for the multiplayer category system — solo itself still uses the continuous attractiveness formula, just multiplied by however many countries you can sell into).
+- **Multiplayer**: the category-leadership system (above) runs **per country per product**, among only the players licensed there — a player who hasn't licensed a country neither competes for nor dilutes anyone else's share of its demand pool.
 
 ## Difficulty levels
 
-- **Beginner**: only price and production volume are exposed per product, plus marketing company-wide. Everything else (capacity/quality/training investment, hiring, wage changes, R&D, loans, capex) stays at its default (usually 0/no-op).
-- **Standard**: the full decision set above.
-- **Advanced**: same as Standard for now.
+- **Beginner**: only price and production volume are exposed per product, plus marketing company-wide. Everything else (capacity/quality/training investment, hiring, wage changes, R&D, loans, capex, international expansion) stays at its default (usually 0/no-op).
+- **Standard**: the full decision set above, except international expansion.
+- **Advanced**: same as Standard, plus international expansion (factory relocation per product; licenses and market research company-wide).
 
 The underlying decision shape never changes by difficulty — only what the UI prompts you to touch (see [docs/DATA_MODEL.md](DATA_MODEL.md)).
 

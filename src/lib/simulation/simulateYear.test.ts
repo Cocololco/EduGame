@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { CompanyDecision, CompanyYearState, ProductDecision, ProductId, RandomEvent, YearDecision } from "@/types/game";
 import { PRODUCT_IDS } from "@/types/game";
-import { CAPACITY_COST_PER_UNIT } from "./constants";
+import { CAPACITY_COST_PER_UNIT, TRANSPORT_COST_PER_UNIT } from "./constants";
+import { getCountryDefinition } from "./countries";
 import { DEFAULT_STARTING_CONDITIONS, createInitialCompanyState } from "./initialState";
 import { PRODUCT_DEFINITIONS } from "./products";
 import {
+  blendDemandWeights,
   computeAttractiveness,
   computeCapacityCostPerUnit,
   computeLaborCapacity,
@@ -349,20 +351,26 @@ describe("simulateMultiplayerYear", () => {
       globalEvents: [],
     });
 
-    // Shortboard is price-weighted 60/40 the other way (60% price, 40% split
-    // across quality/brand/innovation) -> p1 (price winner) should still
-    // take a clear majority share of shortboard.
+    // Both players are only licensed in France by default, so the weights
+    // in play are shortboard's own profile blended with France's
+    // (blendDemandWeights averages them): price (60+35)/2=47.5,
+    // quality (15+30)/2=22.5, brand (15+25)/2=20, innovation (10+10)/2=10.
+    // p1 wins ONLY price -> should get exactly that blended price share
+    // (note: France's own preferences pull enough weight toward
+    // quality/brand/innovation that p2 actually edges p1 out overall here,
+    // 52.5 vs 47.5 — winning price alone isn't a majority once blended).
     const shortboardShare = (playerIdx: number) =>
       results[playerIdx].incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.marketSharePct!;
-    expect(shortboardShare(0)).toBeGreaterThan(shortboardShare(1));
-    expect(shortboardShare(0)).toBeCloseTo(60, 6); // exactly the price weight: p1 wins ONLY price
+    expect(shortboardShare(0)).toBeCloseTo(47.5, 6);
+    expect(shortboardShare(1)).toBeCloseTo(52.5, 6);
 
-    // Fishboard is quality-weighted (only 10% price) -> p2 (quality/brand/
-    // innovation winner) should take the clear majority there instead.
+    // Fishboard blended with France: price (10+35)/2=22.5, quality
+    // (50+30)/2=40, brand (30+25)/2=27.5, innovation (10+10)/2=10. p2 wins
+    // quality+brand+innovation = 77.5.
     const fishboardShare = (playerIdx: number) =>
       results[playerIdx].incomeStatement.byProduct.find((p) => p.productId === "fishboard")!.marketSharePct!;
     expect(fishboardShare(1)).toBeGreaterThan(fishboardShare(0));
-    expect(fishboardShare(1)).toBeCloseTo(90, 6); // quality+brand+innovation weights (50+30+10)
+    expect(fishboardShare(1)).toBeCloseTo(77.5, 6);
   });
 
   it("splits a category's share evenly among tied winners", () => {
@@ -390,5 +398,227 @@ describe("simulateMultiplayerYear", () => {
       const shortboard = result.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
       expect(shortboard.marketSharePct).toBeCloseTo(100 / 3, 6);
     }
+  });
+});
+
+describe("blendDemandWeights", () => {
+  it("averages two profiles that already sum to 100 into one that still sums to 100", () => {
+    const blended = blendDemandWeights(PRODUCT_DEFINITIONS.fishboard.demandWeights, getCountryDefinition("morocco").demandWeights);
+    const total = blended.priceWeight + blended.qualityWeight + blended.brandWeight + blended.innovationWeight;
+    expect(total).toBeCloseTo(100, 6);
+    // fishboard price 10, morocco price 55 -> average 32.5
+    expect(blended.priceWeight).toBeCloseTo(32.5, 6);
+  });
+});
+
+describe("countries: per-product demand size", () => {
+  it("scales demand differently per product per country, not by one flat country-wide number", () => {
+    // Australia's real surf culture supports the niche fishboard line
+    // relatively BETTER than China's nascent one does, even though both
+    // countries' shortboard multipliers are much closer together — a
+    // company selling only into Australia should see a much bigger
+    // fishboard-to-shortboard demand ratio than one selling only into China.
+    const inAustralia = baseState({ licensedCountries: ["australia"] });
+    const inChina = baseState({ licensedCountries: ["china"] });
+    for (const s of [inAustralia, inChina]) {
+      for (const id of PRODUCT_IDS) {
+        s.products[id] = { ...s.products[id], productionCapacity: 100000, employees: 1000 };
+      }
+    }
+    const decision = baseDecision(
+      "p1",
+      { products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never },
+    );
+
+    const australiaResult = simulateYear({ decision, openingState: inAustralia, events: [] });
+    const chinaResult = simulateYear({ decision, openingState: inChina, events: [] });
+
+    const ratio = (r: typeof australiaResult) => {
+      const fishboard = r.incomeStatement.byProduct.find((p) => p.productId === "fishboard")!.unitsSold;
+      const shortboard = r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.unitsSold;
+      return fishboard / shortboard;
+    };
+
+    expect(ratio(australiaResult)).toBeGreaterThan(ratio(chinaResult));
+    // Sanity-check against the catalog directly too.
+    const australia = getCountryDefinition("australia");
+    const china = getCountryDefinition("china");
+    expect(australia.demandMultiplierByProduct.fishboard).toBeGreaterThan(australia.demandMultiplierByProduct.shortboard);
+    expect(china.demandMultiplierByProduct.fishboard).toBeLessThan(china.demandMultiplierByProduct.shortboard);
+  });
+});
+
+describe("countries: year-over-year demand growth", () => {
+  it("compounds an emerging market's demand multiplier by its growth rate each year, leaving a flat (0%-growth) market unchanged", () => {
+    const state = baseState({ licensedCountries: ["morocco"] });
+    state.products.shortboard = { ...state.products.shortboard, productionCapacity: 100000, employees: 1000 };
+
+    const decisionYear1 = baseDecision("p1", { products: { shortboard: { productionVolume: 100000 } } });
+    const decisionYear11 = { ...decisionYear1, year: 11 }; // 10 years of compounding elapsed
+
+    const year1 = simulateYear({ decision: decisionYear1, openingState: state, events: [] });
+    const year11 = simulateYear({ decision: decisionYear11, openingState: state, events: [] });
+
+    const sold = (r: typeof year1) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.unitsSold;
+    const morocco = getCountryDefinition("morocco");
+    const expectedRatio = Math.pow(1 + morocco.demandGrowthRatePerYear, 10);
+    expect(sold(year11) / sold(year1)).toBeCloseTo(expectedRatio, 4);
+    expect(morocco.demandGrowthRatePerYear).toBeGreaterThan(0);
+
+    // France has 0 growth — a decade later, demand from it is unchanged.
+    const franceState = baseState({ licensedCountries: ["france"] });
+    franceState.products.shortboard = { ...franceState.products.shortboard, productionCapacity: 100000, employees: 1000 };
+    const franceYear1 = simulateYear({ decision: decisionYear1, openingState: franceState, events: [] });
+    const franceYear11 = simulateYear({ decision: decisionYear11, openingState: franceState, events: [] });
+    expect(sold(franceYear11)).toBeCloseTo(sold(franceYear1), 6);
+    expect(getCountryDefinition("france").demandGrowthRatePerYear).toBe(0);
+  });
+});
+
+describe("countries: licenses", () => {
+  it("a company only licensed in France gets no demand from a country it hasn't licensed", () => {
+    const licensedOnlyFrance = baseState();
+    const licensedBoth = baseState({ licensedCountries: ["france", "australia"] });
+
+    const decision = baseDecision("p1", {
+      products: { shortboard: { productionVolume: 100000 } },
+    });
+    const stateWithBigCapacity = { ...licensedOnlyFrance, products: { ...licensedOnlyFrance.products, shortboard: { ...licensedOnlyFrance.products.shortboard, productionCapacity: 100000, employees: 1000 } } };
+    const stateWithBigCapacityAndAustralia = { ...licensedBoth, products: { ...licensedBoth.products, shortboard: { ...licensedBoth.products.shortboard, productionCapacity: 100000, employees: 1000 } } };
+
+    const franceOnly = simulateYear({ decision, openingState: stateWithBigCapacity, events: [] });
+    const franceAndAustralia = simulateYear({ decision, openingState: stateWithBigCapacityAndAustralia, events: [] });
+
+    const shortboardSold = (r: typeof franceOnly) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.unitsSold;
+    // Licensing a second (bigger-demand) country should only ever add demand, never remove it.
+    expect(shortboardSold(franceAndAustralia)).toBeGreaterThan(shortboardSold(franceOnly));
+  });
+
+  it("buying a license costs money now but only takes effect next year", () => {
+    const state = baseState();
+    const cost = getCountryDefinition("australia").licenseCost;
+    const decision = baseDecision("p1", { company: { licenseCountry: "australia" } });
+    const withoutLicense = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
+    const withLicense = simulateYear({ decision, openingState: state, events: [] });
+
+    // Cash is down by the license cost this year...
+    expect(withoutLicense.closingState.cash - withLicense.closingState.cash).toBeCloseTo(cost, 6);
+    // ...and the closing state (next year's opening state) now includes it, but THIS year's demand was unaffected (same state used as input for both).
+    expect(withLicense.closingState.licensedCountries).toContain("australia");
+    expect(state.licensedCountries).not.toContain("australia");
+  });
+
+  it("buying a license you already have costs nothing (idempotent)", () => {
+    const state = baseState({ licensedCountries: ["france", "morocco"] });
+    const decision = baseDecision("p1", { company: { licenseCountry: "morocco" } });
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const withoutRebuy = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
+    expect(result.closingState.cash).toBeCloseTo(withoutRebuy.closingState.cash, 6);
+  });
+});
+
+describe("countries: factories, labor cost, transport", () => {
+  it("relocating a factory changes wages next year, not this year", () => {
+    const state = baseState({ openedFactoryCountries: ["france", "morocco"] });
+    state.products.shortboard = { ...state.products.shortboard, factoryCountry: "france" };
+
+    const decision = baseDecision("p1", { products: { shortboard: { relocateFactoryTo: "morocco" } } });
+    const result = simulateYear({ decision, openingState: state, events: [] });
+    const noRelocate = simulateYear({ decision: baseDecision("p1"), openingState: state, events: [] });
+
+    // This year's wages are identical (still France's labor cost) regardless of the relocation decision...
+    const wages = (r: typeof result) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.wagesExpense;
+    expect(wages(result)).toBeCloseTo(wages(noRelocate), 6);
+    // ...but the closing state reflects the move, ready for next year.
+    expect(result.closingState.products.shortboard.factoryCountry).toBe("morocco");
+  });
+
+  it("a lower labor-cost factory country reduces wages the year after relocating", () => {
+    const cheapState = baseState();
+    cheapState.products.shortboard = { ...cheapState.products.shortboard, factoryCountry: "china" };
+    const expensiveState = baseState();
+    expensiveState.products.shortboard = { ...expensiveState.products.shortboard, factoryCountry: "france" };
+
+    const decision = baseDecision("p1");
+    const cheap = simulateYear({ decision, openingState: cheapState, events: [] });
+    const expensive = simulateYear({ decision, openingState: expensiveState, events: [] });
+
+    const wages = (r: typeof cheap) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.wagesExpense;
+    expect(wages(cheap)).toBeLessThan(wages(expensive));
+    expect(getCountryDefinition("china").laborCostMultiplier).toBeLessThan(getCountryDefinition("france").laborCostMultiplier);
+  });
+
+  it("opening a new factory costs money once and adds to fixed assets; reusing an already-open one is free", () => {
+    const state = baseState({ openedFactoryCountries: ["france"] });
+    const cost = getCountryDefinition("morocco").factoryCost;
+
+    const relocate = baseDecision("p1", { products: { shortboard: { relocateFactoryTo: "morocco" } } });
+    const stayPut = baseDecision("p1");
+    const relocated = simulateYear({ decision: relocate, openingState: state, events: [] });
+    const stayed = simulateYear({ decision: stayPut, openingState: state, events: [] });
+
+    expect(relocated.closingState.fixedAssets - stayed.closingState.fixedAssets).toBeCloseTo(cost, 6);
+    expect(relocated.closingState.openedFactoryCountries).toContain("morocco");
+
+    // Second product relocating to the SAME already-open country this year shouldn't be charged again.
+    const relocateTwoProducts = baseDecision("p1", {
+      products: { shortboard: { relocateFactoryTo: "morocco" }, longboard: { relocateFactoryTo: "morocco" } },
+    });
+    const both = simulateYear({ decision: relocateTwoProducts, openingState: state, events: [] });
+    expect(both.closingState.fixedAssets - stayed.closingState.fixedAssets).toBeCloseTo(cost, 6); // still just ONE factoryCost
+  });
+
+  it("selling into a country other than the factory country costs a transport surcharge on those units", () => {
+    const domesticOnly = baseState({ licensedCountries: ["france"] });
+    const withExport = baseState({ licensedCountries: ["france", "australia"] });
+    for (const s of [domesticOnly, withExport]) {
+      s.products.shortboard = { ...s.products.shortboard, productionCapacity: 100000, employees: 1000, factoryCountry: "france" };
+    }
+
+    const decision = baseDecision("p1", { products: { shortboard: { productionVolume: 100000 } } });
+    const domesticResult = simulateYear({ decision, openingState: domesticOnly, events: [] });
+    const exportResult = simulateYear({ decision, openingState: withExport, events: [] });
+
+    const shortboard = (r: typeof domesticResult) => r.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+    const domesticCostPerUnit = shortboard(domesticResult).cogs / shortboard(domesticResult).unitsSold;
+    const exportCostPerUnit = shortboard(exportResult).cogs / shortboard(exportResult).unitsSold;
+
+    // Some of the export scenario's demand comes from Australia (not the
+    // factory country), so its blended per-unit cost should sit strictly
+    // between "no transport cost" and "full TRANSPORT_COST_PER_UNIT surcharge".
+    expect(exportCostPerUnit).toBeGreaterThan(domesticCostPerUnit);
+    expect(exportCostPerUnit).toBeLessThan(domesticCostPerUnit + TRANSPORT_COST_PER_UNIT);
+  });
+});
+
+describe("countries: multiplayer license gating", () => {
+  it("a player not licensed in a country neither competes for nor receives its demand", () => {
+    const franceOnly = baseState({ licensedCountries: ["france"] });
+    const bothCountries = baseState({ licensedCountries: ["france", "australia"] });
+    for (const s of [franceOnly, bothCountries]) {
+      for (const id of PRODUCT_IDS) {
+        s.products[id] = { ...s.products[id], productionCapacity: 100000, employees: 1000 };
+      }
+    }
+
+    const decision = (playerId: string) =>
+      baseDecision(playerId, {
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+      });
+
+    const { results } = simulateMultiplayerYear({
+      year: 1,
+      players: [
+        { decision: decision("franceOnly"), openingState: franceOnly, playerEvents: [] },
+        { decision: decision("both"), openingState: bothCountries, playerEvents: [] },
+      ],
+      globalEvents: [],
+    });
+
+    // The France-only player should get roughly HALF of France's shortboard
+    // demand (split with the other player there) and nothing from
+    // Australia; the other player gets France's other half PLUS all of Australia.
+    const shortboardSold = (i: number) => results[i].incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.unitsSold;
+    expect(shortboardSold(1)).toBeGreaterThan(shortboardSold(0));
   });
 });

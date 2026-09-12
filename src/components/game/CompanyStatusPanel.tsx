@@ -1,7 +1,8 @@
 import type { CompanyYearState } from "@/types/game";
-import { PRODUCT_IDS } from "@/types/game";
+import { COUNTRY_IDS, PRODUCT_IDS } from "@/types/game";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
+import { effectiveDemandMultiplier, getCountryDefinition } from "@/lib/simulation/countries";
 import { effectiveCapacity } from "@/lib/game/decisionOptions";
 import { ProductIcon } from "./ProductIcon";
 
@@ -53,6 +54,7 @@ export function CompanyStatusPanel({
               <th className="py-1.5 pr-4 font-medium">Quality</th>
               <th className="py-1.5 pr-4 font-medium">Productivity</th>
               <th className="py-1.5 pr-4 font-medium">Inventory</th>
+              <th className="py-1.5 pr-4 font-medium">Factory</th>
             </tr>
           </thead>
           <tbody>
@@ -82,6 +84,56 @@ export function CompanyStatusPanel({
                   <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{Math.round(p.quality)}/100</td>
                   <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{Math.round(p.productivity)}/100</td>
                   <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{formatNumber(p.inventoryUnits)}</td>
+                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{getCountryDefinition(p.factoryCountry).name}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-5 overflow-x-auto">
+        <p className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          International — license to sell there, research to reveal what its customers care about (France is known from the start). Demand size grows year over year in emerging markets (Morocco, Portugal, China); the figures below are already updated for next year.
+        </p>
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+              <th className="py-1.5 pr-4 font-medium">Country</th>
+              <th className="py-1.5 pr-4 font-medium">Licensed</th>
+              <th className="py-1.5 pr-4 font-medium">Factory</th>
+              <th className="py-1.5 pr-4 font-medium">Demand size (Short / Long / Fish)</th>
+              <th className="py-1.5 pr-4 font-medium">Customer preferences</th>
+            </tr>
+          </thead>
+          <tbody>
+            {COUNTRY_IDS.map((id) => {
+              const c = getCountryDefinition(id);
+              const licensed = state.licensedCountries.includes(id);
+              const hasFactory = state.openedFactoryCountries.includes(id);
+              const researched = state.researchedCountries.includes(id);
+              return (
+                <tr key={id} className="border-b border-zinc-100 dark:border-zinc-900">
+                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{c.name}</td>
+                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{licensed ? "✓" : "—"}</td>
+                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">{hasFactory ? "✓" : "—"}</td>
+                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">
+                    {researched ? (
+                      // As of NEXT year (when a decision made now would take
+                      // effect) — reflects that country's growth so far,
+                      // see effectiveDemandMultiplier().
+                      `×${effectiveDemandMultiplier(c, "shortboard", state.year + 1).toFixed(2)} / ×${effectiveDemandMultiplier(c, "longboard", state.year + 1).toFixed(2)} / ×${effectiveDemandMultiplier(c, "fishboard", state.year + 1).toFixed(2)}`
+                    ) : (
+                      <span className="text-zinc-400 dark:text-zinc-500">?</span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-4 text-zinc-700 dark:text-zinc-300">
+                    {researched ? (
+                      `Price ${c.demandWeights.priceWeight} · Quality ${c.demandWeights.qualityWeight} · Brand ${c.demandWeights.brandWeight} · Innovation ${c.demandWeights.innovationWeight}`
+                    ) : (
+                      <span className="text-zinc-400 dark:text-zinc-500">Not researched — buy market research to reveal</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}

@@ -88,3 +88,17 @@ export const INNOVATION_CAPACITY_COST_REDUCTION_RATE = 0.005;
 
 /** Floor on the capacity-cost multiplier from innovation — capacity investment can get at most this much cheaper. */
 export const INNOVATION_MIN_CAPACITY_COST_MULTIPLIER = 0.5;
+
+// ===== International expansion (countries/factories/transport/licenses) =====
+// See docs/REGIONS_DESIGN.md and src/lib/simulation/countries.ts for the
+// country catalog (labor cost, demand, and preference weights per country).
+
+/**
+ * Flat $/unit surcharge added to a unit's cost when it's sold into a
+ * country other than the one it was manufactured in (ProductLineState.
+ * factoryCountry). Deliberately a single flat rate rather than a full
+ * country-pair distance matrix — see REGIONS_DESIGN.md's "simplest
+ * workable version" reasoning; a real matrix is easy to add later without
+ * being a prerequisite for a playable first version.
+ */
+export const TRANSPORT_COST_PER_UNIT = 5;

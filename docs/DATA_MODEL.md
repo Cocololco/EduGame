@@ -34,7 +34,7 @@ This append-only, indexed-by-year structure is what makes games **resumable**: t
 
 ## Why decisions and results are separate from company state
 
-- `CompanyYearState` is a **snapshot** (cash, debt, brand, innovation, morale, and each product's price/capacity/employees/quality/productivity/inventory as of a point in time) — cheap to read, used as "current state" shown to a player before they decide.
+- `CompanyYearState` is a **snapshot** (cash, debt, brand, innovation, morale, `licensedCountries`/`openedFactoryCountries`/`researchedCountries`, and each product's price/capacity/employees/quality/productivity/inventory/`factoryCountry` as of a point in time) — cheap to read, used as "current state" shown to a player before they decide.
 - `YearDecision` is the **input** a player controls for one year, split into one company-wide `CompanyDecision` and three `ProductDecision`s.
 - `YearResult` is the **output** of simulating a year: full income statement (with a per-product breakdown, `byProduct: ProductYearResult[]`) + balance sheet + ratios + which random events hit. It embeds both the opening and closing `CompanyYearState` so a year's result is self-contained and auditable without recomputing history.
 
@@ -54,9 +54,17 @@ Two `Player` fields exist only for multiplayer:
 
 `GameConfig.numBots` is fixed at game creation; human seats = `maxPlayers - numBots`. `GameStatus.setup` is the lobby — humans join via the game's own URL as the invite link, until the host starts it (which is when bots actually get added, not at creation).
 
+## International expansion (countries)
+
+Fully specified in [REGIONS_DESIGN.md](REGIONS_DESIGN.md) and now built. `CountryId` (`france` | `morocco` | `portugal` | `china` | `australia`) and its static catalog `CountryDefinition` (labor-cost multiplier, a per-product `demandMultiplierByProduct` plus a `demandGrowthRatePerYear` it compounds by — see `effectiveDemandMultiplier()` in [`countries.ts`](../src/lib/simulation/countries.ts) — demand weights, license/factory/research cost) work exactly like `ProductId`/`ProductDefinition`: static config, not part of game state.
+
+What *is* part of state: `ProductLineState.factoryCountry` (where that product currently manufactures) and `CompanyYearState.licensedCountries` / `openedFactoryCountries` / `researchedCountries` (company-wide lists, start as `["france"]`). Decisions gained three optional fields, all one-time (not annual) purchases that land in the *closing* state, same "pays off next year" rule as everything else: `ProductDecision.relocateFactoryTo`, `CompanyDecision.licenseCountry`, `CompanyDecision.researchCountry`.
+
+`allocateDemandShares`'s per-category blending (`blendDemandWeights` in `simulateYear.ts`) now runs per (product, country) pair in multiplayer, among only the players licensed in that country; solo mode sums demand across every licensed country directly. A flat `TRANSPORT_COST_PER_UNIT` surcharge applies to units sold outside a product's factory country. Market research is a UI-only fog-of-war gate — the engine always uses the real weights regardless of `researchedCountries`.
+
 ## Difficulty levels
 
-`DifficultyLevel` doesn't change the data shape — a `YearDecision` always has the full `CompanyDecision` + all three `ProductDecision`s. What changes is **which fields the UI exposes** (see [`src/lib/game/difficulty.ts`](../src/lib/game/difficulty.ts)): Beginner shows only price/production per product plus company marketing; Standard (and, for now, Advanced) show everything. Fields not shown stay at their form default (usually 0/no-op), so simulation logic never special-cases a tier.
+`DifficultyLevel` doesn't change the data shape — a `YearDecision` always has the full `CompanyDecision` + all three `ProductDecision`s. What changes is **which fields the UI exposes** (see [`src/lib/game/difficulty.ts`](../src/lib/game/difficulty.ts)): Beginner shows only price/production per product plus company marketing; Standard shows everything except international expansion; Advanced additionally exposes `relocateFactoryTo`/`licenseCountry`/`researchCountry`. Fields not shown stay at their form default (usually unset/no-op), so simulation logic never special-cases a tier.
 
 ## Random events
 
@@ -74,7 +82,7 @@ Two `Player` fields exist only for multiplayer:
 
 Carried over from GAME_DESIGN.md, plus data-model-specific ones:
 
-- **Regions** (countries/factories/transport/licenses) — fully specified in [REGIONS_DESIGN.md](REGIONS_DESIGN.md), not built; would touch `ProductLineState`, decisions, and demand allocation all at once
+- **Regions UI polish**: the engine and decision UI are built (see "International expansion" above), but the financials page still has no per-country breakdown — only the per-product one. Deferred per REGIONS_DESIGN.md's suggested build order.
 - Exact `roiPct` base (equity vs. total assets) and the composite score's actual weight values
 - Whether `CompanyYearState`/`YearResult` need per-year `id`s once this is persisted in a real database (this model assumes array-order-by-year is enough for now)
 - Multiplayer disconnect/never-comes-back handling — a game just waits forever on a missing `pendingDecision`, no timeout or player-removal path

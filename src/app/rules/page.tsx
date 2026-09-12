@@ -235,26 +235,77 @@ export default function RulesPage() {
             matters there. Winning nothing gets you 0% of that product&apos;s demand that year.
           </p>
           <p>
-            Total demand pool per product = baseline × number of players. <strong>Bots</strong> fill reserved seats
-            with one of three fixed personalities (aggressive/premium/balanced) that don&apos;t adapt to rivals —
-            good enough to fill a table, not a serious opponent. A year resolves once every human has submitted
-            (bots are pre-seeded the moment it&apos;s their turn).
+            The table above is each product&apos;s <em>own</em> weights — in multiplayer they get blended with the
+            destination country&apos;s weights (see &quot;International expansion&quot; below) and run separately
+            per country. Total demand pool per product per country = baseline × country&apos;s demand multiplier ×
+            number of players licensed there. <strong>Bots</strong> fill reserved seats with one of three fixed
+            personalities (aggressive/premium/balanced) that don&apos;t adapt to rivals — good enough to fill a
+            table, not a serious opponent. A year resolves once every human has submitted (bots are pre-seeded the
+            moment it&apos;s their turn).
           </p>
           <Callout>
             Sign-in is a display name only — no password, no real account. A game&apos;s own link is its invite —
             whoever opens it can join if a seat is free. Deliberate, documented tradeoff for a personal project.
           </Callout>
-          <Callout>
-            Not built yet: selling into different countries, factories, transport cost, licenses, and paid market
-            research. Fully specified for later in docs/REGIONS_DESIGN.md, not implemented.
-          </Callout>
+        </Section>
+
+        <Section title="International expansion">
+          <p>
+            You start able to sell into, and manufacture in, <strong>France only</strong> — its numbers are known
+            from the start. Everywhere else costs a decision, and like every other investment it only takes effect{" "}
+            <strong>next</strong> year.
+          </p>
+          <Table
+            headers={["Country", "Labor", "Demand yr 1 (Short/Long/Fish)", "Growth/yr", "License", "Factory", "Research"]}
+            rows={[
+              ["France (start)", "×1.4", "1.3/1.1/0.7", "0%", "free", "free", "free"],
+              ["Morocco", "×0.5", "0.7/0.4/0.2", "+2%", "$8,000", "$15,000", "$1,500"],
+              ["Portugal", "×0.7", "1.3/1.2/0.9", "+2.5%", "$15,000", "$25,000", "$2,000"],
+              ["China", "×0.35", "0.5/0.35/0.1", "+5%", "$20,000", "$20,000", "$2,500"],
+              ["Australia", "×1.05", "1.4/1.5/1.6", "+1%", "$25,000", "$35,000", "$3,000"],
+            ]}
+          />
+          <p>
+            Demand size is per-product, not one flat number per country — Morocco/China skew hard toward cheap
+            entry boards with almost no luxury demand, while Australia&apos;s affluent surf culture makes the niche
+            fishboard line do relatively <em>better</em> than the mass-market lines there. It also compounds year
+            over year at a slow, deterministic rate — no randomness — so emerging markets (especially China, off a
+            tiny base) get meaningfully bigger the longer a game runs. Every demand figure shown in the app is
+            already the effective value for the year it&apos;d take effect, not the raw year-1 number above.
+          </p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>
+              <strong>License</strong> (company-wide, one-time): no license in a country means zero demand from it,
+              for every product, full stop.
+            </li>
+            <li>
+              <strong>Factory</strong> (per product, one-time per country the first time anyone opens one there):
+              sets that product&apos;s manufacturing base and its labor-cost multiplier on wages. One workforce per
+              product, wherever its factory currently is.
+            </li>
+            <li>
+              <strong>Transport cost:</strong> a flat <strong>+$5/unit</strong> surcharge on units sold into a
+              country other than a product&apos;s factory country.
+            </li>
+            <li>
+              <strong>Market research</strong> (company-wide, one-time): reveals a country&apos;s price/quality/
+              brand/innovation weights in the status table. UI-only — the simulation always uses the real weights.
+            </li>
+          </ul>
+          <p>
+            <strong>Blending:</strong>{" "}
+            <code className="rounded bg-black/5 px-1 dark:bg-white/10">effective[category] = (product[category] + country[category]) / 2</code>{" "}
+            — a luxury fishboard sold into brand-conscious Australia leans hard into brand/quality; the same
+            fishboard sold into price-driven Morocco gets pulled toward price mattering more.
+          </p>
         </Section>
 
         <Section title="Difficulty levels">
           <p>
             <strong>Beginner:</strong> only price and production volume per product, plus company marketing.
-            Everything else stays at its default. <strong>Standard:</strong> the full decision set.{" "}
-            <strong>Advanced:</strong> same as Standard for now.
+            Everything else stays at its default. <strong>Standard:</strong> the full decision set, except
+            international expansion. <strong>Advanced:</strong> same as Standard, plus international expansion
+            (factory relocation per product; licenses and market research company-wide).
           </p>
         </Section>
 

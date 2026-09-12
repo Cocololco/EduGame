@@ -1,10 +1,12 @@
 import type {
   BalanceSheet,
   CompanyYearState,
+  CountryId,
   DemandWeightProfile,
   FinancialRatios,
   IncomeStatement,
   MarketYearState,
+  ProductDefinition,
   ProductId,
   ProductLineState,
   ProductYearResult,
@@ -13,7 +15,7 @@ import type {
   YearDecision,
   YearResult,
 } from "@/types/game";
-import { PRODUCT_IDS } from "@/types/game";
+import { COUNTRY_IDS, PRODUCT_IDS } from "@/types/game";
 import {
   BRAND_AWARENESS_DECAY,
   DEPRECIATION_RATE,
@@ -32,12 +34,14 @@ import {
   QUALITY_COST_PER_POINT,
   RND_COST_PER_INNOVATION_POINT,
   TRAINING_COST_PER_PRODUCTIVITY_POINT,
+  TRANSPORT_COST_PER_UNIT,
   CAPACITY_COST_PER_UNIT,
   REFERENCE_WAGE,
   UNITS_PER_EMPLOYEE,
   WAGE_PRODUCTIVITY_MAX_FACTOR,
   WAGE_PRODUCTIVITY_MIN_FACTOR,
 } from "./constants";
+import { effectiveDemandMultiplier, getCountryDefinition } from "./countries";
 import { getProductDefinition } from "./products";
 
 function clamp(value: number, min: number, max: number): number {
@@ -139,6 +143,67 @@ export function computeCapacityCostPerUnit(companyInnovation: number): number {
   return CAPACITY_COST_PER_UNIT * multiplier;
 }
 
+/**
+ * Averages a product's demand weights with a country's own customer
+ * preferences (see docs/REGIONS_DESIGN.md). Both already sum to 100, so a
+ * straight average also sums to 100 — no renormalization needed.
+ */
+export function blendDemandWeights(product: DemandWeightProfile, country: DemandWeightProfile): DemandWeightProfile {
+  return {
+    priceWeight: (product.priceWeight + country.priceWeight) / 2,
+    qualityWeight: (product.qualityWeight + country.qualityWeight) / 2,
+    brandWeight: (product.brandWeight + country.brandWeight) / 2,
+    innovationWeight: (product.innovationWeight + country.innovationWeight) / 2,
+  };
+}
+
+interface SoloCountryDemand {
+  /** Summed across every licensed country, before event multipliers. */
+  totalDemand: number;
+  /** Weighted-average $/unit transport surcharge, from the share of demand coming from countries other than where this product is manufactured. */
+  transportSurchargePerUnit: number;
+}
+
+/**
+ * Solo-mode demand: sums this product's demand across every country the
+ * company is licensed to sell into (using the same attractiveness formula
+ * as always — a country's demandWeights aren't reweighted into solo's
+ * multiplicative formula, only its per-product, year-compounding demand
+ * multiplier is — see effectiveDemandMultiplier(); REGIONS_DESIGN.md has
+ * why weight-blending is scoped as a multiplayer-only nuance). Expanding
+ * into more licensed countries directly grows total addressable demand —
+ * the incentive to bother with licenses at all in solo mode.
+ */
+function computeSoloCountryDemand(
+  product: ProductLineState,
+  def: ProductDefinition,
+  companyState: CompanyYearState,
+  effectivePrice: number,
+  gameYear: number,
+): SoloCountryDemand {
+  const attractiveness = computeAttractiveness(
+    product,
+    companyState.brandAwareness,
+    companyState.innovation,
+    effectivePrice,
+    def.referencePrice,
+  );
+
+  let totalDemand = 0;
+  let crossBorderDemand = 0;
+  for (const countryId of companyState.licensedCountries) {
+    const country = getCountryDefinition(countryId);
+    const countryDemand = def.baseDemandUnits * effectiveDemandMultiplier(country, def.id, gameYear) * attractiveness;
+    totalDemand += countryDemand;
+    if (countryId !== product.factoryCountry) crossBorderDemand += countryDemand;
+  }
+
+  return {
+    totalDemand,
+    transportSurchargePerUnit: totalDemand > 0 ? (crossBorderDemand / totalDemand) * TRANSPORT_COST_PER_UNIT : 0,
+  };
+}
+
 export interface SimulateYearInput {
   decision: YearDecision;
   openingState: CompanyYearState;
@@ -147,11 +212,18 @@ export interface SimulateYearInput {
   /**
    * Per-product units of demand allocated to this player this year, before
    * event demand multipliers are applied. When omitted (solo mode), demand
-   * is computed from each product's own baseDemandUnits * attractiveness.
-   * In multiplayer, simulateMultiplayerYear supplies this per product from
-   * each player's share of that product's total shared demand.
+   * is computed from each licensed country's own baseDemandUnits *
+   * attractiveness (see computeSoloCountryDemand). In multiplayer,
+   * simulateMultiplayerYear supplies this per product from each player's
+   * share of that product's total demand, summed across countries.
    */
   demandUnitsOverride?: Partial<Record<ProductId, number>>;
+  /**
+   * Multiplayer only — precomputed weighted-average $/unit transport
+   * surcharge per product (see simulateMultiplayerYear). Ignored in solo
+   * mode, where it's computed internally instead.
+   */
+  transportSurchargePerUnitOverride?: Partial<Record<ProductId, number>>;
 }
 
 /**
@@ -166,9 +238,12 @@ export interface SimulateYearInput {
  *   only trainingSpend is expensed on the income statement (as a proxy for
  *   "this is genuinely a running cost"), while capacity/quality investment
  *   are capitalized-ish (reduce cash, not routed through net profit) — a
- *   simplification, not full accrual accounting.
+ *   simplification, not full accrual accounting. License/research costs
+ *   follow qualityInvestment's precedent (pure cash outflow, no asset, no
+ *   P&L line); factory costs follow capacityInvestment's (added to
+ *   fixedAssets, since a factory is a real capital asset).
  * - `roiPct` is net profit over total assets, not over equity.
- * See docs/DATA_MODEL.md and docs/GAME_DESIGN.md for open questions.
+ * See docs/DATA_MODEL.md, docs/GAME_DESIGN.md and docs/REGIONS_DESIGN.md for open questions.
  */
 export function simulateYear(input: SimulateYearInput): YearResult {
   const { decision, openingState, events } = input;
@@ -188,6 +263,39 @@ export function simulateYear(input: SimulateYearInput): YearResult {
 
   const capacityCostPerUnit = computeCapacityCostPerUnit(openingState.innovation);
 
+  // --- international expansion: resolve this year's factory/license/research picks first ---
+  // (Effective NEXT year, same "this year's investment pays off next year"
+  // rule as everything else — this year's production/demand still uses the
+  // OPENING licensedCountries/factoryCountry.)
+  const newlyOpenedFactoryCountries: CountryId[] = [];
+  let totalFactoryCost = 0;
+  for (const id of PRODUCT_IDS) {
+    const target = decision.products[id].relocateFactoryTo;
+    if (
+      target &&
+      !openingState.openedFactoryCountries.includes(target) &&
+      !newlyOpenedFactoryCountries.includes(target)
+    ) {
+      newlyOpenedFactoryCountries.push(target);
+      totalFactoryCost += getCountryDefinition(target).factoryCost;
+    }
+  }
+  const openedFactoryCountries = [...openingState.openedFactoryCountries, ...newlyOpenedFactoryCountries];
+
+  const licenseTarget = decision.company.licenseCountry;
+  const buyingNewLicense = !!licenseTarget && !openingState.licensedCountries.includes(licenseTarget);
+  const licenseCost = buyingNewLicense ? getCountryDefinition(licenseTarget).licenseCost : 0;
+  const licensedCountries = buyingNewLicense
+    ? [...openingState.licensedCountries, licenseTarget]
+    : openingState.licensedCountries;
+
+  const researchTarget = decision.company.researchCountry;
+  const buyingNewResearch = !!researchTarget && !openingState.researchedCountries.includes(researchTarget);
+  const researchCost = buyingNewResearch ? getCountryDefinition(researchTarget).researchCost : 0;
+  const researchedCountries = buyingNewResearch
+    ? [...openingState.researchedCountries, researchTarget]
+    : openingState.researchedCountries;
+
   for (const id of PRODUCT_IDS) {
     const def = getProductDefinition(id);
     const product = openingState.products[id];
@@ -197,12 +305,16 @@ export function simulateYear(input: SimulateYearInput): YearResult {
     const effectivePrice = pDecision.price * Math.min(1, merged.priceCapMultiplier);
 
     const overrideDemand = input.demandUnitsOverride?.[id];
-    const potentialDemand =
-      overrideDemand !== undefined
-        ? overrideDemand * merged.demandMultiplier
-        : def.baseDemandUnits *
-          computeAttractiveness(product, openingState.brandAwareness, openingState.innovation, effectivePrice, def.referencePrice) *
-          merged.demandMultiplier;
+    let potentialDemand: number;
+    let transportSurchargePerUnit: number;
+    if (overrideDemand !== undefined) {
+      potentialDemand = overrideDemand * merged.demandMultiplier;
+      transportSurchargePerUnit = input.transportSurchargePerUnitOverride?.[id] ?? 0;
+    } else {
+      const soloDemand = computeSoloCountryDemand(product, def, openingState, effectivePrice, decision.year);
+      potentialDemand = soloDemand.totalDemand * merged.demandMultiplier;
+      transportSurchargePerUnit = soloDemand.transportSurchargePerUnit;
+    }
 
     const laborCapacity = computeLaborCapacity(product);
     const effectiveCapacity = Math.min(product.productionCapacity, laborCapacity);
@@ -211,12 +323,13 @@ export function simulateYear(input: SimulateYearInput): YearResult {
     const unitsSold = Math.max(0, Math.min(potentialDemand, unitsAvailable));
     const unsoldInventoryUnits = Math.round(Math.max(0, unitsAvailable - unitsSold));
 
-    const unitCost = def.baseUnitCost * merged.unitCostMultiplier;
+    const unitCost = def.baseUnitCost * merged.unitCostMultiplier + transportSurchargePerUnit;
     const cogs = unitsSold * unitCost;
     const revenue = unitsSold * effectivePrice;
     const grossProfit = revenue - cogs;
 
-    const wagesExpense = product.employees * product.wageLevel;
+    const laborCostMultiplier = getCountryDefinition(product.factoryCountry).laborCostMultiplier;
+    const wagesExpense = product.employees * product.wageLevel * laborCostMultiplier;
     const trainingExpense = Math.max(0, pDecision.trainingSpend);
 
     totalRevenue += revenue;
@@ -253,6 +366,7 @@ export function simulateYear(input: SimulateYearInput): YearResult {
       100,
     );
     const productionCapacity = product.productionCapacity + pDecision.capacityInvestment / capacityCostPerUnit;
+    const factoryCountry = pDecision.relocateFactoryTo ?? product.factoryCountry;
 
     closingProducts[id] = {
       productId: id,
@@ -264,6 +378,7 @@ export function simulateYear(input: SimulateYearInput): YearResult {
       productivity,
       inventoryUnits: unsoldInventoryUnits,
       inventoryValue: unsoldInventoryUnits * unitCost,
+      factoryCountry,
     };
   }
 
@@ -319,7 +434,7 @@ export function simulateYear(input: SimulateYearInput): YearResult {
   );
   const fixedAssets = Math.max(
     0,
-    openingState.fixedAssets + totalCapacityInvestment + decision.company.capexSpend - depreciation,
+    openingState.fixedAssets + totalCapacityInvestment + totalFactoryCost + decision.company.capexSpend - depreciation,
   );
 
   const cash =
@@ -328,6 +443,9 @@ export function simulateYear(input: SimulateYearInput): YearResult {
     depreciation - // non-cash expense, add back
     totalCapacityInvestment -
     totalQualityInvestment -
+    totalFactoryCost -
+    licenseCost -
+    researchCost -
     decision.company.capexSpend +
     decision.company.loanAmountRequested -
     decision.company.loanRepayment +
@@ -348,6 +466,9 @@ export function simulateYear(input: SimulateYearInput): YearResult {
     innovation,
     morale,
     products: closingProducts as CompanyYearState["products"],
+    licensedCountries,
+    openedFactoryCountries,
+    researchedCountries,
   };
 
   const balanceSheet: BalanceSheet = {
@@ -439,7 +560,7 @@ export interface SimulateMultiplayerYearInput {
   players: MultiplayerPlayerInput[];
   /** Events affecting the whole shared market. */
   globalEvents: RandomEvent[];
-  /** Per-product baseline demand, defaults to each product's baseDemandUnits * players.length. */
+  /** Overrides a product's baseDemandUnits (still scaled by each country's per-product, year-compounding demand multiplier and eligible-player count) — mainly for tests. */
   totalDemandBaseByProduct?: Partial<Record<ProductId, number>>;
 }
 
@@ -449,17 +570,23 @@ export interface SimulateMultiplayerYearOutput {
 }
 
 /**
- * Multiplayer version of simulateYear: for each product, splits that
- * product's demand pool among all players by category leadership (see
- * allocateDemandShares — cheapest price / highest quality / highest brand /
- * highest innovation, weighted per product via ProductDefinition.demandWeights),
- * then simulates each player's year against their allocated share.
+ * Multiplayer version of simulateYear: for each product, for each country,
+ * splits that country's demand pool (baseDemandUnits × country's
+ * per-product, year-compounding demand multiplier — effectiveDemandMultiplier()
+ * — × number of players actually LICENSED there) among only the licensed
+ * players by category leadership (see allocateDemandShares),
+ * using weights blended from the product's own profile and that country's
+ * customer preferences (blendDemandWeights). A player not licensed in a
+ * country gets none of its demand and doesn't dilute anyone else's share
+ * there. Each player's per-product demand is the SUM across every country
+ * they're licensed in, same as solo — see computeSoloCountryDemand.
  */
 export function simulateMultiplayerYear(input: SimulateMultiplayerYearInput): SimulateMultiplayerYearOutput {
   const { year, players, globalEvents } = input;
   const globalMerged = mergeAll(globalEvents);
 
   const demandUnitsOverrideByPlayer: Partial<Record<ProductId, number>>[] = players.map(() => ({}));
+  const transportSurchargeByPlayer: Partial<Record<ProductId, number>>[] = players.map(() => ({}));
   const productShareByPlayer: Record<ProductId, number>[] = players.map(() => ({}) as Record<ProductId, number>);
   const playerShares: Record<string, number> = {};
   let weightedPriceSum = 0;
@@ -467,28 +594,53 @@ export function simulateMultiplayerYear(input: SimulateMultiplayerYearInput): Si
 
   for (const id of PRODUCT_IDS) {
     const def = getProductDefinition(id);
-    const candidates: DemandCandidate[] = players.map(({ decision, openingState }) => ({
-      price: decision.products[id].price,
-      quality: openingState.products[id].quality,
-      brand: openingState.brandAwareness,
-      innovation: openingState.innovation,
-    }));
-    const shareFractions = allocateDemandShares(candidates, def.demandWeights);
-    const totalDemandBase = input.totalDemandBaseByProduct?.[id] ?? def.baseDemandUnits * players.length;
+    const productBaseDemand = input.totalDemandBaseByProduct?.[id] ?? def.baseDemandUnits;
+    const totalDemandByPlayer = players.map(() => 0);
+    const crossBorderDemandByPlayer = players.map(() => 0);
+
+    for (const countryId of COUNTRY_IDS) {
+      const country = getCountryDefinition(countryId);
+      const eligible = players
+        .map((p, i) => ({ p, i }))
+        .filter(({ p }) => p.openingState.licensedCountries.includes(countryId));
+      if (eligible.length === 0) continue;
+
+      const blendedWeights = blendDemandWeights(def.demandWeights, country.demandWeights);
+      const candidates: DemandCandidate[] = eligible.map(({ p }) => ({
+        price: p.decision.products[id].price,
+        quality: p.openingState.products[id].quality,
+        brand: p.openingState.brandAwareness,
+        innovation: p.openingState.innovation,
+      }));
+      const shareFractions = allocateDemandShares(candidates, blendedWeights);
+      const countryDemandBase = productBaseDemand * effectiveDemandMultiplier(country, id, year) * eligible.length;
+
+      eligible.forEach(({ p, i }, k) => {
+        const units = countryDemandBase * shareFractions[k];
+        totalDemandByPlayer[i] += units;
+        if (countryId !== p.openingState.products[id].factoryCountry) {
+          crossBorderDemandByPlayer[i] += units;
+        }
+      });
+    }
+
+    const totalAcrossPlayers = totalDemandByPlayer.reduce((a, b) => a + b, 0) || 1;
 
     players.forEach((p, i) => {
-      const shareFraction = shareFractions[i];
-      demandUnitsOverrideByPlayer[i][id] = totalDemandBase * shareFraction;
-      productShareByPlayer[i][id] = shareFraction * 100;
+      const total = totalDemandByPlayer[i];
+      demandUnitsOverrideByPlayer[i][id] = total;
+      transportSurchargeByPlayer[i][id] = total > 0 ? (crossBorderDemandByPlayer[i] / total) * TRANSPORT_COST_PER_UNIT : 0;
+      const sharePct = (total / totalAcrossPlayers) * 100;
+      productShareByPlayer[i][id] = sharePct;
       if (id === "shortboard") {
         // Use the highest-volume product as the representative figure for
         // the overall company market-share summary shown in MarketYearState.
-        playerShares[p.decision.playerId] = shareFraction * 100;
-        weightedPriceSum += p.decision.products[id].price * shareFraction;
+        playerShares[p.decision.playerId] = sharePct;
+        weightedPriceSum += p.decision.products[id].price * (sharePct / 100);
       }
     });
 
-    totalDemandAllProducts += totalDemandBase * globalMerged.demandMultiplier;
+    totalDemandAllProducts += totalAcrossPlayers * globalMerged.demandMultiplier;
   }
 
   const results = players.map((p, i) => {
@@ -497,6 +649,7 @@ export function simulateMultiplayerYear(input: SimulateMultiplayerYearInput): Si
       openingState: p.openingState,
       events: [...globalEvents, ...p.playerEvents],
       demandUnitsOverride: demandUnitsOverrideByPlayer[i],
+      transportSurchargePerUnitOverride: transportSurchargeByPlayer[i],
     });
     for (const productResult of result.incomeStatement.byProduct) {
       productResult.marketSharePct = productShareByPlayer[i][productResult.productId];

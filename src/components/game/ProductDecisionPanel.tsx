@@ -1,11 +1,12 @@
 "use client";
 
-import type { DifficultyLevel, ProductDefinition, ProductLineState } from "@/types/game";
+import type { CountryId, DifficultyLevel, ProductDefinition, ProductLineState } from "@/types/game";
 import type { ProductDecisionInput } from "@/lib/game/createGame";
 import type { FieldOption } from "@/lib/game/decisionOptions";
 import { PRODUCT_FIELDS_BY_DIFFICULTY } from "@/lib/game/difficulty";
 import {
   capacityInvestmentOptions,
+  factoryRelocationOptions,
   fireOptions,
   hireOptions,
   priceOptions,
@@ -23,6 +24,7 @@ interface Props {
   state: ProductLineState;
   companyBrandAwareness: number;
   companyInnovation: number;
+  openedFactoryCountries: CountryId[];
   value: ProductDecisionInput;
   onChange: (next: ProductDecisionInput) => void;
   difficulty: DifficultyLevel;
@@ -33,6 +35,7 @@ export function ProductDecisionPanel({
   state,
   companyBrandAwareness,
   companyInnovation,
+  openedFactoryCountries,
   value,
   onChange,
   difficulty,
@@ -60,6 +63,7 @@ export function ProductDecisionPanel({
   ];
   const visible = new Set(PRODUCT_FIELDS_BY_DIFFICULTY[difficulty]);
   const fields = allFields.filter((f) => visible.has(f.key));
+  const showFactoryRelocation = visible.has("relocateFactoryTo");
 
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
@@ -105,6 +109,23 @@ export function ProductDecisionPanel({
             </select>
           </label>
         ))}
+
+        {showFactoryRelocation && (
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">Factory location</span>
+            <select
+              value={value.relocateFactoryTo ?? ""}
+              onChange={(e) => onChange({ ...value, relocateFactoryTo: (e.target.value || undefined) as ProductDecisionInput["relocateFactoryTo"] })}
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+            >
+              {factoryRelocationOptions(state, openedFactoryCountries).map((opt) => (
+                <option key={opt.value || "stay"} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
     </div>
   );

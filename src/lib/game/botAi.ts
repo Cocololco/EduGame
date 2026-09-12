@@ -1,6 +1,7 @@
-import type { BotPersonality, CompanyYearState, ProductId, YearDecisionInput } from "@/types/game";
+import type { BotPersonality, CompanyYearState, CountryId, ProductId, YearDecisionInput } from "@/types/game";
 import { PRODUCT_IDS } from "@/types/game";
 import { effectiveCapacity } from "./decisionOptions";
+import { getCountryDefinition } from "../simulation/countries";
 import { PRODUCT_DEFINITIONS } from "../simulation/products";
 
 /**
@@ -56,6 +57,32 @@ function jitter(base: number, spread = 0.15): number {
   return Math.max(0, Math.round(base * factor));
 }
 
+// ===== International expansion =====
+// Bots license countries but never buy market research: research is a
+// UI-only fog-of-war reveal for human players (the engine always uses the
+// real weights — see docs/REGIONS_DESIGN.md), and a bot's code already
+// "knows" the real weights, so spending on it would be pure waste. Bots
+// also never relocate factories — a bigger, riskier commitment left for a
+// human to consider deliberately.
+
+/** Fixed order bots consider licensing into — the two genuinely biggest real surf markets first, then the cheap manufacturing bases. */
+const EXPANSION_ORDER: CountryId[] = ["portugal", "australia", "morocco", "china"];
+
+/** Fraction of current cash a bot is willing to spend on ONE new license this year (never over-leverages on a single expansion). */
+const EXPANSION_CASH_FRACTION: Record<BotPersonality, number> = {
+  aggressive: 0.35,
+  premium: 0.25,
+  balanced: 0.3,
+};
+
+/** The next country (if any, and if affordable right now) a bot should license this year. */
+function decideBotLicenseCountry(personality: BotPersonality, state: CompanyYearState): CountryId | undefined {
+  const next = EXPANSION_ORDER.find((id) => !state.licensedCountries.includes(id));
+  if (!next) return undefined;
+  const cost = getCountryDefinition(next).licenseCost;
+  return cost <= state.cash * EXPANSION_CASH_FRACTION[personality] ? next : undefined;
+}
+
 /** Produces one bot's decision for the year ahead, from its personality and current company state. */
 export function decideBotYear(personality: BotPersonality, state: CompanyYearState): YearDecisionInput {
   const profile = PERSONALITY_PROFILES[personality];
@@ -85,6 +112,7 @@ export function decideBotYear(personality: BotPersonality, state: CompanyYearSta
       loanAmountRequested: 0,
       loanRepayment: 0,
       capexSpend: 0,
+      licenseCountry: decideBotLicenseCountry(personality, state),
     },
     products,
   };

@@ -1,4 +1,5 @@
-import type { CompanyYearState, ProductDefinition, ProductLineState } from "@/types/game";
+import type { CompanyYearState, CountryId, ProductDefinition, ProductLineState } from "@/types/game";
+import { COUNTRY_IDS, PRODUCT_IDS } from "@/types/game";
 import {
   CAPACITY_COST_PER_UNIT,
   INTEREST_RATE,
@@ -10,6 +11,7 @@ import {
   TRAINING_COST_PER_PRODUCTIVITY_POINT,
   UNITS_PER_EMPLOYEE,
 } from "@/lib/simulation/constants";
+import { effectiveDemandMultiplier, getCountryDefinition } from "@/lib/simulation/countries";
 import {
   computeCapacityCostPerUnit,
   computeLaborCapacity,
@@ -18,6 +20,9 @@ import {
 } from "@/lib/simulation/simulateYear";
 
 export type FieldOption = { value: number; label: string };
+
+/** Like FieldOption but for the country-picker selects (license/research/factory), whose value is a CountryId — "" means "no purchase this year". */
+export type CountryFieldOption = { value: CountryId | ""; label: string };
 
 /** Picks whichever option's value is numerically closest to `target`. */
 export function nearestOption(options: FieldOption[], target: number): number {
@@ -197,4 +202,65 @@ export function capexOptions(): FieldOption[] {
     value: v,
     label: v === 0 ? "$0 — None" : `$${v.toLocaleString()} (adds to fixed assets, 10%/yr depreciation)`,
   }));
+}
+
+// ===== International expansion (licenses, market research, factories) =====
+// See docs/REGIONS_DESIGN.md. All three are one-time purchases (not annual
+// spend like marketing/R&D) that take effect next year — this year's demand
+// still runs on the opening licensedCountries/factoryCountry.
+
+/** Countries the company can still license this year (already-licensed ones aren't offered again). */
+export function licenseCountryOptions(state: CompanyYearState): CountryFieldOption[] {
+  const options: CountryFieldOption[] = [{ value: "", label: "None — no new license this year" }];
+  const effectiveYear = state.year + 1; // the year this license would actually take effect
+  for (const id of COUNTRY_IDS) {
+    if (state.licensedCountries.includes(id)) continue;
+    const def = getCountryDefinition(id);
+    // A license opens ALL three products there at once, and demand size
+    // varies per product (see countries.ts) — show the range rather than
+    // one misleading flat number. Reflects that country's growth up to the
+    // year the license actually opens (see effectiveDemandMultiplier).
+    const multipliers = PRODUCT_IDS.map((p) => effectiveDemandMultiplier(def, p, effectiveYear));
+    const min = Math.min(...multipliers).toFixed(1);
+    const max = Math.max(...multipliers).toFixed(1);
+    options.push({
+      value: id,
+      label: `${def.name} — $${def.licenseCost.toLocaleString()} (opens selling there next yr, demand ×${min}–${max} depending on product)`,
+    });
+  }
+  if (options.length === 1) return [{ value: "", label: "Already licensed in every country" }];
+  return options;
+}
+
+/** Countries whose customer-preference weights aren't yet revealed in the UI (France is free from the start — see initialState.ts). */
+export function researchCountryOptions(state: CompanyYearState): CountryFieldOption[] {
+  const options: CountryFieldOption[] = [{ value: "", label: "None — no research this year" }];
+  for (const id of COUNTRY_IDS) {
+    if (state.researchedCountries.includes(id)) continue;
+    const def = getCountryDefinition(id);
+    options.push({
+      value: id,
+      label: `${def.name} — $${def.researchCost.toLocaleString()} (reveals its price/quality/brand/innovation preferences next yr)`,
+    });
+  }
+  if (options.length === 1) return [{ value: "", label: "Already researched every country" }];
+  return options;
+}
+
+/** Where a product's factory could relocate to (labor-cost multiplier shown; opening a NEW country's factory costs its factoryCost, reusing one already open is free). */
+export function factoryRelocationOptions(product: ProductLineState, openedFactoryCountries: CountryId[]): CountryFieldOption[] {
+  const currentDef = getCountryDefinition(product.factoryCountry);
+  const options: CountryFieldOption[] = [
+    { value: "", label: `Stay in ${currentDef.name} (labor ×${currentDef.laborCostMultiplier})` },
+  ];
+  for (const id of COUNTRY_IDS) {
+    if (id === product.factoryCountry) continue;
+    const def = getCountryDefinition(id);
+    const alreadyOpen = openedFactoryCountries.includes(id);
+    options.push({
+      value: id,
+      label: `${def.name} — ${alreadyOpen ? "factory already open" : `$${def.factoryCost.toLocaleString()} to open`} (labor ×${def.laborCostMultiplier}, next yr)`,
+    });
+  }
+  return options;
 }

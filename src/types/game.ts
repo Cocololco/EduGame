@@ -51,6 +51,45 @@ export interface ProductDefinition {
   demandWeights: DemandWeightProfile;
 }
 
+// ===== Countries ==============================================================
+
+export type CountryId = "france" | "morocco" | "portugal" | "china" | "australia";
+
+export const COUNTRY_IDS: CountryId[] = ["france", "morocco", "portugal", "china", "australia"];
+
+/** Static, unchanging config for a country — not part of game state. See docs/REGIONS_DESIGN.md. */
+export interface CountryDefinition {
+  id: CountryId;
+  name: string;
+  description: string;
+  /** Multiplies wages for a product manufactured there (see ProductLineState.factoryCountry). */
+  laborCostMultiplier: number;
+  /**
+   * Multiplies each product's baseDemandUnits for sales into this country —
+   * per product, not one flat country-wide number: a country's surf market
+   * can skew heavily toward mass-market boards or toward the premium/niche
+   * line (e.g. Australia's genuine enthusiast culture supports luxury boards
+   * far better than China's nascent one does). See docs/REGIONS_DESIGN.md.
+   */
+  demandMultiplierByProduct: Record<ProductId, number>;
+  /**
+   * Slow, deterministic year-over-year compounding growth (or 0 for a
+   * mature/saturated market) applied to every one of this country's
+   * demandMultiplierByProduct values — e.g. China's tiny-but-emerging surf
+   * culture grows a few percent a year while France's stays flat. See
+   * `effectiveDemandMultiplier()` in countries.ts.
+   */
+  demandGrowthRatePerYear: number;
+  /** This country's own customer preferences — blended with a product's own weights, see blendDemandWeights(). */
+  demandWeights: DemandWeightProfile;
+  /** One-time cost to license selling into this country. 0 for the free starting country (France). */
+  licenseCost: number;
+  /** One-time cost to open a factory there. 0 for the free starting factory (France). */
+  factoryCost: number;
+  /** Cost to reveal this country's demandWeights in the UI (the engine always uses the real numbers regardless — see REGIONS_DESIGN.md). */
+  researchCost: number;
+}
+
 // ===== Game & players =====================================================
 
 export type GameMode = "solo" | "multiplayer";
@@ -175,6 +214,13 @@ export interface ProductLineState {
   inventoryUnits: number;
   /** Dollar value of that stock, valued at latest unit cost. */
   inventoryValue: number;
+  /**
+   * Which country this product line is manufactured in — must be one of
+   * the company's `openedFactoryCountries`. Sets the labor-cost multiplier
+   * for this line's wages, and any country it sells into other than this
+   * one incurs a transport surcharge. Starts as "france".
+   */
+  factoryCountry: CountryId;
 }
 
 /**
@@ -196,6 +242,12 @@ export interface CompanyYearState {
   /** 0-100 index, company-wide. */
   morale: number;
   products: Record<ProductId, ProductLineState>;
+  /** Countries you're allowed to sell into at all — no license, zero demand there, full stop. Starts ["france"] (free). */
+  licensedCountries: CountryId[];
+  /** Countries with an open factory (paid once via a product's relocateFactoryTo) — a product's factoryCountry must be one of these. Starts ["france"] (free). */
+  openedFactoryCountries: CountryId[];
+  /** Countries whose demandWeights are revealed in the UI (engine always uses the real numbers regardless of this). Starts ["france"] (told to you for free at game start). */
+  researchedCountries: CountryId[];
 }
 
 // ===== Decisions (submitted by a player for one year) ======================
@@ -221,6 +273,13 @@ export interface ProductDecision {
   fires: number;
   /** e.g. +5 for a 5% raise. */
   wageAdjustmentPct: number;
+  /**
+   * Move this product's manufacturing to a different country, effective
+   * next year. If that country isn't already in `openedFactoryCountries`,
+   * this pays that country's one-time factoryCost. Set to the current
+   * factoryCountry (or omit) for "stay put, no cost".
+   */
+  relocateFactoryTo?: CountryId;
 }
 
 export interface CompanyDecision {
@@ -232,6 +291,10 @@ export interface CompanyDecision {
   loanRepayment: number;
   /** General capex, not tied to one product. */
   capexSpend: number;
+  /** Buy a license for this country, effective next year (one-time cost, omit/undefined for none this year). */
+  licenseCountry?: CountryId;
+  /** Pay to reveal this country's demandWeights in the UI, effective next year (omit/undefined for none this year). */
+  researchCountry?: CountryId;
 }
 
 export interface YearDecision {
