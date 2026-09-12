@@ -7,11 +7,14 @@ import { ProductIcon } from "./ProductIcon";
 export function YearResultSummaryCard({
   result,
   gameId,
+  financialsHref,
   onContinue,
   isLastYear,
 }: {
   result: YearResult;
   gameId: string;
+  /** Overrides the default solo-mode financials link; pass null to hide the link entirely (multiplayer has no per-year financials page yet). */
+  financialsHref?: string | null;
   onContinue: () => void;
   isLastYear: boolean;
 }) {
@@ -20,9 +23,14 @@ export function YearResultSummaryCard({
     <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-4 flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Year {result.year} results</h2>
-        <Link href={`/solo/play/${gameId}/financials?year=${result.year}`} className="text-sm underline text-zinc-600 dark:text-zinc-400">
-          Full financials →
-        </Link>
+        {financialsHref !== null && (
+          <Link
+            href={financialsHref ?? `/solo/play/${gameId}/financials?year=${result.year}`}
+            className="text-sm underline text-zinc-600 dark:text-zinc-400"
+          >
+            Full financials →
+          </Link>
+        )}
       </div>
 
       {result.eventsApplied.length > 0 && (

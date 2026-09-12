@@ -67,8 +67,14 @@ export interface GameConfig {
   totalYears: number;
   /** Random events are always on for now, but kept togglable per design doc. */
   randomEventsEnabled: boolean;
-  /** 1 for solo, 2-4 for multiplayer. */
+  /** 1 for solo, 2-4 for multiplayer. Total seats, human + bot. */
   maxPlayers: number;
+  /**
+   * Multiplayer only: how many of maxPlayers are reserved for bots, fixed
+   * at creation. Human seats = maxPlayers - numBots; bots are added when
+   * the host starts the game, regardless of how many humans joined by then.
+   */
+  numBots: number;
   createdAt: string; // ISO timestamp
   createdByUserId: string;
 }
@@ -87,9 +93,12 @@ export interface Game {
   updatedAt: string; // ISO timestamp, bumped on every mutation (supports resume)
 }
 
+/** Simple heuristic bot decision styles — see src/lib/game/botAi.ts. */
+export type BotPersonality = "aggressive" | "premium" | "balanced";
+
 export interface Player {
   id: string;
-  /** Ties to the future accounts/auth system. */
+  /** Ties to the future accounts/auth system — currently a localStorage-generated id, not real auth (see docs/GAME_DESIGN.md). */
   userId: string;
   displayName: string;
   /** Optional company/brand name, separate from the player's own name. */
@@ -105,6 +114,16 @@ export interface Player {
   results: YearResult[];
   /** Set once the game completes. */
   finalScore?: Score;
+  /** Multiplayer only. */
+  isBot?: boolean;
+  botPersonality?: BotPersonality;
+  /**
+   * Multiplayer only: this player's decision for the CURRENT (not yet
+   * resolved) year, submitted but waiting on other players. Cleared once
+   * the year resolves and gets appended to `decisions`/`results` for
+   * everyone at once.
+   */
+  pendingDecision?: YearDecisionInput;
 }
 
 /**
@@ -222,6 +241,20 @@ export interface YearDecision {
   company: CompanyDecision;
   products: Record<ProductId, ProductDecision>;
   submittedAt: string; // ISO timestamp
+}
+
+/**
+ * The shape a player actually fills in — everything about YearDecision
+ * except what's derived when the year resolves (playerId/year/submittedAt).
+ * Used both for solo (src/lib/game/createGame.ts re-exports these) and for
+ * a multiplayer player's submitted-but-unresolved decision
+ * (Player.pendingDecision below).
+ */
+export type ProductDecisionInput = Omit<ProductDecision, "productId">;
+
+export interface YearDecisionInput {
+  company: CompanyDecision;
+  products: Record<ProductId, ProductDecisionInput>;
 }
 
 // ===== Random events =========================================================

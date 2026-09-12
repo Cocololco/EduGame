@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local multiplayer game data (server-side JSON store — see src/lib/server/gameStore.ts)
+/data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

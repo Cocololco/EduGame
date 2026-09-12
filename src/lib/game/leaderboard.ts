@@ -28,8 +28,18 @@ function saveEntries(entries: LeaderboardEntry[]): void {
   window.localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(entries));
 }
 
-/** Records a completed game's final score. No-op if the game isn't completed or already recorded. */
-export function recordLeaderboardEntry(game: Game): LeaderboardEntry | null {
+/**
+ * Records a completed game's final score for one player — defaults to
+ * players[0] (solo games only ever have one player). For multiplayer, pass
+ * `playerId` for whichever player this browser's viewer actually is, so
+ * each participant logs their own result to their own local leaderboard
+ * (there's no shared server-side leaderboard — see docs/GAME_DESIGN.md).
+ * No-op if the game isn't completed or this entry is already recorded.
+ * Dedup is keyed on gameId alone: within one browser, a given multiplayer
+ * game only ever corresponds to one player (this browser's own identity),
+ * so that's unambiguous — no need to fold playerId into the key.
+ */
+export function recordLeaderboardEntry(game: Game, playerId?: string): LeaderboardEntry | null {
   if (game.status !== "completed") return null;
 
   const entries = listLeaderboardEntries();
@@ -37,9 +47,9 @@ export function recordLeaderboardEntry(game: Game): LeaderboardEntry | null {
     return entries.find((e) => e.gameId === game.config.id) ?? null;
   }
 
-  const player = game.players[0];
-  const score = player.finalScore;
-  if (!score) return null;
+  const player = playerId ? game.players.find((p) => p.id === playerId) : game.players[0];
+  const score = player?.finalScore;
+  if (!player || !score) return null;
 
   const entry: LeaderboardEntry = {
     id: `lb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,

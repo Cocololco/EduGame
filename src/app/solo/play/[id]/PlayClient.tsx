@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { CompanyDecision, Game, ProductId } from "@/types/game";
+import type { Game } from "@/types/game";
 import { PRODUCT_IDS } from "@/types/game";
 import { advanceSoloYear } from "@/lib/game/createGame";
-import type { ProductDecisionInput, YearDecisionInput } from "@/lib/game/createGame";
+import type { YearDecisionInput } from "@/lib/game/createGame";
 import { deleteGame, loadGame, saveGame } from "@/lib/game/storage";
 import { recordLeaderboardEntry } from "@/lib/game/leaderboard";
-import { nearestOption, priceOptions, productionOptions } from "@/lib/game/decisionOptions";
-import { computeAttractiveness } from "@/lib/simulation/simulateYear";
+import { buildDefaultDecisionInput } from "@/lib/game/defaultDecision";
 import { PRODUCT_DEFINITIONS } from "@/lib/simulation/products";
 import { CompanyStatusPanel } from "@/components/game/CompanyStatusPanel";
 import { ProductDecisionPanel } from "@/components/game/ProductDecisionPanel";
@@ -22,40 +21,7 @@ type FormState = YearDecisionInput;
 
 function defaultFormState(game: Game): FormState {
   const state = game.players[0].companyStates[game.players[0].companyStates.length - 1];
-  const products = {} as Record<ProductId, ProductDecisionInput>;
-
-  for (const id of PRODUCT_IDS) {
-    const def = PRODUCT_DEFINITIONS[id];
-    const productState = state.products[id];
-    const priceOpts = priceOptions(def);
-    const defaultPrice = nearestOption(priceOpts, Math.round(productState.currentPrice));
-
-    const attractiveness = computeAttractiveness(productState, state.brandAwareness, state.innovation, defaultPrice, def.referencePrice);
-    const projectedDemand = Math.round(def.baseDemandUnits * attractiveness);
-    const prodOpts = productionOptions(productState);
-    const defaultProduction = nearestOption(prodOpts, projectedDemand);
-
-    products[id] = {
-      price: defaultPrice,
-      productionVolume: defaultProduction,
-      capacityInvestment: 0,
-      qualityInvestment: 0,
-      trainingSpend: 0,
-      hires: 0,
-      fires: 0,
-      wageAdjustmentPct: 0,
-    };
-  }
-
-  const company: CompanyDecision = {
-    marketingSpend: 1000,
-    rndSpend: 0,
-    loanAmountRequested: 0,
-    loanRepayment: 0,
-    capexSpend: 0,
-  };
-
-  return { company, products };
+  return buildDefaultDecisionInput(state);
 }
 
 export default function PlayClient() {

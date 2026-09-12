@@ -29,17 +29,20 @@ export default function Home() {
           >
             Play Solo
           </Link>
-          <span
-            title="Not built yet"
-            className="flex h-12 w-full cursor-not-allowed items-center justify-center rounded-full border border-zinc-300 px-6 text-base font-medium text-zinc-400 dark:border-zinc-700 dark:text-zinc-600 sm:w-auto"
+          <Link
+            href="/multiplayer/new"
+            className="flex h-12 w-full items-center justify-center rounded-full border border-zinc-300 px-6 text-base font-medium text-zinc-800 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900 sm:w-auto"
           >
-            Multiplayer (soon)
-          </span>
+            Play Multiplayer
+          </Link>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-zinc-600 dark:text-zinc-400">
           <Link href="/solo" className="underline">
             My games
+          </Link>
+          <Link href="/multiplayer" className="underline">
+            My multiplayer games
           </Link>
           <Link href="/leaderboard" className="underline">
             Leaderboard
@@ -50,7 +53,11 @@ export default function Home() {
         </div>
 
         <p className="text-sm text-zinc-500 dark:text-zinc-500">
-          No account needed yet — solo games are saved in this browser only.
+          No account needed — solo games live in this browser only; multiplayer just needs a name (see{" "}
+          <Link href="/login" className="underline">
+            sign in
+          </Link>
+          ).
         </p>
 
         <div className="flex gap-6 text-xs text-zinc-500 dark:text-zinc-500">

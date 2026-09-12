@@ -1,19 +1,11 @@
-import type {
-  CompanyDecision,
-  DifficultyLevel,
-  Game,
-  GameConfig,
-  Player,
-  ProductDecision,
-  ProductId,
-  RandomEvent,
-  YearDecision,
-} from "@/types/game";
-import { PRODUCT_IDS } from "@/types/game";
+import type { DifficultyLevel, Game, GameConfig, Player, RandomEvent } from "@/types/game";
 import { createInitialCompanyState, DEFAULT_STARTING_CONDITIONS } from "../simulation/initialState";
 import { rollRandomEvent } from "../simulation/randomEvents";
-import { computeScore } from "../simulation/scoring";
 import { simulateYear } from "../simulation/simulateYear";
+import { applyYearResultToPlayer, buildYearDecision } from "./yearResolution";
+
+export type { ProductDecisionInput, YearDecisionInput } from "@/types/game";
+import type { YearDecisionInput } from "@/types/game";
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -38,6 +30,7 @@ export function createSoloGame(options: CreateSoloGameOptions): Game {
     totalYears: options.totalYears,
     randomEventsEnabled: true,
     maxPlayers: 1,
+    numBots: 0,
     createdAt: now,
     createdByUserId: options.userId,
   };
@@ -64,13 +57,6 @@ export function createSoloGame(options: CreateSoloGameOptions): Game {
   };
 }
 
-export type ProductDecisionInput = Omit<ProductDecision, "productId">;
-
-export interface YearDecisionInput {
-  company: CompanyDecision;
-  products: Record<ProductId, ProductDecisionInput>;
-}
-
 /**
  * Simulates the next year of a solo game from a submitted decision (year
  * and product ids/submission timestamp are derived, not supplied by the
@@ -82,18 +68,7 @@ export function advanceSoloYear(game: Game, decisionInput: YearDecisionInput): G
   const openingState = player.companyStates[player.companyStates.length - 1];
   const year = openingState.year + 1;
 
-  const products = {} as Record<ProductId, ProductDecision>;
-  for (const id of PRODUCT_IDS) {
-    products[id] = { productId: id, ...decisionInput.products[id] };
-  }
-
-  const decision: YearDecision = {
-    playerId: player.id,
-    year,
-    company: decisionInput.company,
-    products,
-    submittedAt: new Date().toISOString(),
-  };
+  const decision = buildYearDecision(player.id, year, decisionInput);
 
   const events: RandomEvent[] = [];
   if (game.config.randomEventsEnabled) {
@@ -104,22 +79,11 @@ export function advanceSoloYear(game: Game, decisionInput: YearDecisionInput): G
   }
 
   const result = simulateYear({ decision, openingState, events });
-
-  const updatedPlayer: Player = {
-    ...player,
-    companyStates: [...player.companyStates, result.closingState],
-    decisions: [...player.decisions, decision],
-    results: [...player.results, result],
-  };
-
-  const status = year >= game.config.totalYears ? "completed" : "in_progress";
-  if (status === "completed") {
-    updatedPlayer.finalScore = computeScore(updatedPlayer);
-  }
+  const updatedPlayer = applyYearResultToPlayer(player, decision, result, game.config.totalYears);
 
   return {
     ...game,
-    status,
+    status: updatedPlayer.finalScore ? "completed" : "in_progress",
     currentYear: year,
     players: [updatedPlayer],
     updatedAt: new Date().toISOString(),
