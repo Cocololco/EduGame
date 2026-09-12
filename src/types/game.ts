@@ -19,17 +19,36 @@ export type ProductId = "shortboard" | "longboard" | "fishboard";
 
 export const PRODUCT_IDS: ProductId[] = ["shortboard", "longboard", "fishboard"];
 
+/**
+ * How much each competitive lever matters for winning a product's
+ * multiplayer demand pool — see DemandWeightProfile below. Each product has
+ * its own profile (e.g. shortboard buyers care mostly about price; luxury
+ * fishboard buyers care mostly about quality).
+ */
+export interface DemandWeightProfile {
+  /** Share of the pool (0-100) awarded to whoever has the CHEAPEST price. */
+  priceWeight: number;
+  /** Share of the pool (0-100) awarded to whoever has the HIGHEST quality. */
+  qualityWeight: number;
+  /** Share of the pool (0-100) awarded to whoever has the HIGHEST brand awareness. */
+  brandWeight: number;
+  /** Share of the pool (0-100) awarded to whoever has the HIGHEST innovation. */
+  innovationWeight: number;
+}
+
 /** Static, unchanging config for a product line — not part of game state. */
 export interface ProductDefinition {
   id: ProductId;
   name: string;
   description: string;
-  /** Price at which the price-attractiveness factor is neutral (1.0) for this product. */
+  /** Price at which the price-attractiveness factor is neutral (1.0) for this product. Used in solo mode. */
   referencePrice: number;
   /** Cost to produce one unit of this product, before cost-affecting events. */
   baseUnitCost: number;
-  /** Baseline yearly demand ceiling for this product, before attractiveness/events. */
+  /** Baseline yearly demand ceiling for this product, before attractiveness/events (solo) or per-player pool sizing (multiplayer). */
   baseDemandUnits: number;
+  /** Multiplayer only — see DemandWeightProfile. Weights sum to 100. */
+  demandWeights: DemandWeightProfile;
 }
 
 // ===== Game & players =====================================================

@@ -1,6 +1,7 @@
 import type {
   BalanceSheet,
   CompanyYearState,
+  DemandWeightProfile,
   FinancialRatios,
   IncomeStatement,
   MarketYearState,
@@ -378,6 +379,54 @@ export function simulateYear(input: SimulateYearInput): YearResult {
   };
 }
 
+interface DemandCandidate {
+  price: number;
+  quality: number;
+  brand: number;
+  innovation: number;
+}
+
+/**
+ * Splits a product's demand pool among competing players by category
+ * leadership rather than smooth proportional attractiveness: each category
+ * (cheapest price / highest quality / highest brand / highest innovation)
+ * hands its whole weighted share to whoever's winning it that year — ties
+ * split the category's share evenly. A player who wins every category that
+ * matters for a product takes the whole pool; one who wins nothing gets 0
+ * from this product (their other two product lines may still carry them).
+ *
+ * This deliberately does NOT redistribute a winner's unclaimed share if
+ * they can't produce/sell it all (production/labor-capacity caps that in
+ * simulateYear already) — a simplification, not a bug: a capacity-starved
+ * market leader just leaves demand on the table rather than handing it to
+ * the runner-up.
+ */
+function allocateDemandShares(candidates: DemandCandidate[], weights: DemandWeightProfile): number[] {
+  const EPSILON = 1e-9;
+  const shares = candidates.map(() => 0);
+
+  const categories: { key: keyof DemandCandidate; weight: number; lowerIsBetter?: boolean }[] = [
+    { key: "price", weight: weights.priceWeight, lowerIsBetter: true },
+    { key: "quality", weight: weights.qualityWeight },
+    { key: "brand", weight: weights.brandWeight },
+    { key: "innovation", weight: weights.innovationWeight },
+  ];
+
+  for (const category of categories) {
+    if (category.weight <= 0 || candidates.length === 0) continue;
+    const values = candidates.map((c) => c[category.key]);
+    const best = category.lowerIsBetter ? Math.min(...values) : Math.max(...values);
+    const winnerIndices = values.reduce<number[]>(
+      (acc, v, i) => (Math.abs(v - best) < EPSILON ? [...acc, i] : acc),
+      [],
+    );
+    const perWinnerSharePct = category.weight / winnerIndices.length;
+    for (const i of winnerIndices) shares[i] += perWinnerSharePct;
+  }
+
+  return shares.map((sharePct) => sharePct / 100);
+}
+
 export interface MultiplayerPlayerInput {
   decision: YearDecision;
   openingState: CompanyYearState;
@@ -400,10 +449,11 @@ export interface SimulateMultiplayerYearOutput {
 }
 
 /**
- * Multiplayer version of simulateYear: for each product, aggregates all
- * players' decisions into one shared market (demand split by relative
- * attractiveness), then simulates each player's year against their
- * allocated per-product share.
+ * Multiplayer version of simulateYear: for each product, splits that
+ * product's demand pool among all players by category leadership (see
+ * allocateDemandShares — cheapest price / highest quality / highest brand /
+ * highest innovation, weighted per product via ProductDefinition.demandWeights),
+ * then simulates each player's year against their allocated share.
  */
 export function simulateMultiplayerYear(input: SimulateMultiplayerYearInput): SimulateMultiplayerYearOutput {
   const { year, players, globalEvents } = input;
@@ -417,20 +467,17 @@ export function simulateMultiplayerYear(input: SimulateMultiplayerYearInput): Si
 
   for (const id of PRODUCT_IDS) {
     const def = getProductDefinition(id);
-    const attractivenessByPlayer = players.map(({ decision, openingState }) =>
-      computeAttractiveness(
-        openingState.products[id],
-        openingState.brandAwareness,
-        openingState.innovation,
-        decision.products[id].price,
-        def.referencePrice,
-      ),
-    );
-    const totalAttractiveness = attractivenessByPlayer.reduce((a, b) => a + b, 0) || 1;
+    const candidates: DemandCandidate[] = players.map(({ decision, openingState }) => ({
+      price: decision.products[id].price,
+      quality: openingState.products[id].quality,
+      brand: openingState.brandAwareness,
+      innovation: openingState.innovation,
+    }));
+    const shareFractions = allocateDemandShares(candidates, def.demandWeights);
     const totalDemandBase = input.totalDemandBaseByProduct?.[id] ?? def.baseDemandUnits * players.length;
 
     players.forEach((p, i) => {
-      const shareFraction = attractivenessByPlayer[i] / totalAttractiveness;
+      const shareFraction = shareFractions[i];
       demandUnitsOverrideByPlayer[i][id] = totalDemandBase * shareFraction;
       productShareByPlayer[i][id] = shareFraction * 100;
       if (id === "shortboard") {

@@ -313,4 +313,82 @@ describe("simulateMultiplayerYear", () => {
 
     expect(market.playerShares["strong"]).toBeGreaterThan(market.playerShares["weak"]);
   });
+
+  it("hands a whole category's demand share to its outright winner (winner-take-category, not proportional)", () => {
+    // p1 undercuts price but has middling quality/brand/innovation; p2 has
+    // the highest price but wins every other category outright.
+    const state = baseState();
+    for (const id of PRODUCT_IDS) {
+      state.products[id] = { ...state.products[id], productionCapacity: 100000, employees: 1000 };
+    }
+    const cheapLowQuality = baseDecision("p1", {
+      products: Object.fromEntries(
+        PRODUCT_IDS.map((id) => [id, { productionVolume: 100000, price: PRODUCT_DEFINITIONS[id].referencePrice * 0.5 }]),
+      ) as never,
+    });
+    const pricierHighQuality = baseDecision("p2", {
+      products: Object.fromEntries(
+        PRODUCT_IDS.map((id) => [id, { productionVolume: 100000, price: PRODUCT_DEFINITIONS[id].referencePrice * 1.5 }]),
+      ) as never,
+    });
+    // NOTE: build p2's products as a fresh object — `{...state, products:
+    // state.products}` would alias the same nested products record, so
+    // mutating one player's product state would silently mutate the
+    // other's too.
+    const p2Products = Object.fromEntries(
+      PRODUCT_IDS.map((id) => [id, { ...state.products[id], quality: 90 }]),
+    ) as CompanyYearState["products"];
+    const p2State: CompanyYearState = { ...state, brandAwareness: 90, innovation: 90, products: p2Products };
+
+    const { results } = simulateMultiplayerYear({
+      year: 1,
+      players: [
+        { decision: cheapLowQuality, openingState: state, playerEvents: [] },
+        { decision: pricierHighQuality, openingState: p2State, playerEvents: [] },
+      ],
+      globalEvents: [],
+    });
+
+    // Shortboard is price-weighted 60/40 the other way (60% price, 40% split
+    // across quality/brand/innovation) -> p1 (price winner) should still
+    // take a clear majority share of shortboard.
+    const shortboardShare = (playerIdx: number) =>
+      results[playerIdx].incomeStatement.byProduct.find((p) => p.productId === "shortboard")!.marketSharePct!;
+    expect(shortboardShare(0)).toBeGreaterThan(shortboardShare(1));
+    expect(shortboardShare(0)).toBeCloseTo(60, 6); // exactly the price weight: p1 wins ONLY price
+
+    // Fishboard is quality-weighted (only 10% price) -> p2 (quality/brand/
+    // innovation winner) should take the clear majority there instead.
+    const fishboardShare = (playerIdx: number) =>
+      results[playerIdx].incomeStatement.byProduct.find((p) => p.productId === "fishboard")!.marketSharePct!;
+    expect(fishboardShare(1)).toBeGreaterThan(fishboardShare(0));
+    expect(fishboardShare(1)).toBeCloseTo(90, 6); // quality+brand+innovation weights (50+30+10)
+  });
+
+  it("splits a category's share evenly among tied winners", () => {
+    const state = baseState();
+    for (const id of PRODUCT_IDS) {
+      state.products[id] = { ...state.products[id], productionCapacity: 100000, employees: 1000 };
+    }
+    // Three identical players, all tied on every category.
+    const decision = (playerId: string) =>
+      baseDecision(playerId, {
+        products: Object.fromEntries(PRODUCT_IDS.map((id) => [id, { productionVolume: 100000 }])) as never,
+      });
+
+    const { results } = simulateMultiplayerYear({
+      year: 1,
+      players: [
+        { decision: decision("p1"), openingState: state, playerEvents: [] },
+        { decision: decision("p2"), openingState: state, playerEvents: [] },
+        { decision: decision("p3"), openingState: state, playerEvents: [] },
+      ],
+      globalEvents: [],
+    });
+
+    for (const result of results) {
+      const shortboard = result.incomeStatement.byProduct.find((p) => p.productId === "shortboard")!;
+      expect(shortboard.marketSharePct).toBeCloseTo(100 / 3, 6);
+    }
+  });
 });
